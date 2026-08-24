@@ -269,66 +269,62 @@
     "frs": [
       {
         "id": "FR-BASE-01",
-        "title": "Automated Candidate Shortlisting",
+        "title": "Candidate Relevance Ranking",
         "category": "Functional",
-        "description": "The system shall automatically shortlist candidates for software engineering roles based on resume analysis.",
+        "description": "The system shall rank candidates based on relevance, skills, and overall profile strength.",
         "priority": "High",
         "status": "RAW_UNCLARIFIED",
         "acceptanceCriteria": [
-          "System reads candidate resumes",
-          "System outputs a shortlist of candidates"
+          "System outputs a ranked list of candidates for a job description."
         ],
-        "sourceStatement": "We need to build an AI-based resume analyzer that can automatically shortlist candidates for our software engineering roles.",
+        "sourceStatement": "It should rank them based on relevance... Mainly skills and experience. And overall profile strength.",
         "ambiguityFlags": [
-          "Missing shortlisting threshold",
-          "Undefined candidate capacity"
+          "'Overall profile strength', 'good companies', and 'solid projects' are undefined"
         ]
       },
       {
         "id": "FR-BASE-02",
-        "title": "Relevance and Profile Strength Ranking",
+        "title": "Historical Hiring Decisions Learning",
         "category": "Functional",
-        "description": "The system shall rank candidates based on relevance to the job description, skills, experience, and overall profile strength (good companies, solid projects, impactful work).",
-        "priority": "High",
+        "description": "The system shall ingest past resumes and historical hiring decisions.",
+        "priority": "Medium",
         "status": "RAW_UNCLARIFIED",
         "acceptanceCriteria": [
-          "Candidates are ranked according to profile strength and experience",
-          "Strong freshers should sometimes rank better than someone with 5 average years"
+          "System reads past resume records."
         ],
-        "sourceStatement": "It should rank them based on relevance to the job description... good companies, solid projects, impactful work.",
+        "sourceStatement": "We have past resumes and hiring decisions, but they're not very structured.",
         "ambiguityFlags": [
-          "'Good companies' and 'solid projects' undefined",
-          "'Not strictly' creates non-deterministic logic"
+          "No schema, file format, or ingestion error handling specified"
         ]
       },
       {
         "id": "FR-BASE-03",
         "title": "Explainability Output",
         "category": "Functional",
-        "description": "The system should provide explainability on why a candidate was ranked higher.",
-        "priority": "Medium",
+        "description": "The system should provide explainability if useful.",
+        "priority": "Low",
         "status": "RAW_UNCLARIFIED",
         "acceptanceCriteria": [
-          "Show reasons for candidate ranking"
+          "Recruiter sees a reason for match."
         ],
-        "sourceStatement": "Do we need explainability? For example, why a candidate was ranked higher? / Yes, that would be useful.",
+        "sourceStatement": "Do we need explainability? / Yes, that would be useful.",
         "ambiguityFlags": [
-          "Format and granularity of explainability unspecified"
+          "'Useful explainability' format and presentation completely undefined"
         ]
       },
       {
         "id": "FR-BASE-04",
-        "title": "Historical Hiring Data Ingestion",
+        "title": "Resume Ingestion Pipeline",
         "category": "Functional",
-        "description": "The system should utilize past resumes and hiring decisions, even if they are not very structured.",
-        "priority": "Medium",
+        "description": "The system shall ingest resumes in unspecified formats.",
+        "priority": "High",
         "status": "RAW_UNCLARIFIED",
         "acceptanceCriteria": [
-          "Ingest past unstructured hiring files"
+          "Resumes can be uploaded."
         ],
-        "sourceStatement": "We have past resumes and hiring decisions, but they're not very structured.",
+        "sourceStatement": "We have past resumes, but they're not very structured.",
         "ambiguityFlags": [
-          "No schema, file format, or ingestion error handling specified"
+          "No file format, size limit, or ingestion pipeline specified"
         ]
       }
     ],
@@ -403,6 +399,11 @@
         "priority": "Must Have",
         "targetUser": "HR Recruiter / Hiring Manager",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-data-01",
+        "originalText": "We have past resumes and hiring decisions, but they're not very structured.",
+        "refinedText": "The system shall ingest PDF/DOCX (up to 10MB) into validated JSON schemas compliant with: Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs..",
+        "stakeholderEvidence": "Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs.",
         "acceptanceCriteria": [
           "Given a valid PDF or DOCX resume under 10MB, When uploaded, Then the system extracts text and generates valid structured JSON.",
           "Given a corrupted or unsupported file type, When uploaded, Then the system returns an informative HTTP 422 error."
@@ -413,49 +414,64 @@
       },
       {
         "id": "FR-02",
-        "title": "Deterministic Multi-Factor Candidate Scoring Engine",
+        "title": "Candidate Scoring (Pending Weighting Formula)",
         "category": "Functional",
-        "description": "The system shall calculate composite candidate relevance scores using stakeholder-defined weighting: Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers..",
-        "priority": "Must Have",
-        "targetUser": "System Algorithm / Recruiter",
-        "status": "RESOLVED",
+        "description": "The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "originalText": "Mainly skills and experience. And overall profile strength.",
+        "refinedText": "Candidate ranking weighting formula pending stakeholder input.",
+        "stakeholderEvidence": null,
         "acceptanceCriteria": [
-          "Given a job description and candidate profile, When scored, Then the final score strictly follows the stakeholder weighting formula.",
-          "Given an exceptional fresher with high project complexity, When ranked against generic experience, Then the fresher outranks when composite score is higher."
+          "Candidates are ranked"
         ],
-        "sourceStatement": "It should rank them based on relevance... Sometimes a strong fresher is better than someone with 5 average years.",
-        "clarificationReference": "Clarification #q-fair-01: \"Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.\"",
-        "verificationMethod": "Unit Test & Ranking Algorithm Regression Suite"
+        "sourceStatement": "Mainly skills and experience. And overall profile strength.",
+        "ambiguityFlags": [
+          "'Good companies', 'solid projects', and fresher weighting formula unresolved"
+        ]
       },
       {
         "id": "FR-03",
         "title": "Structured Explainability & Match Scorecard",
         "category": "Functional",
-        "description": "The system shall display a candidate match scorecard based on stakeholder specification: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..",
+        "description": "The system shall generate an interactive candidate match scorecard satisfying stakeholder preference: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..",
         "priority": "Must Have",
         "targetUser": "HR Recruiter",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-exp-01",
+        "originalText": "Do we need explainability? / Yes, that would be useful.",
+        "refinedText": "The system shall provide recruiter match scorecards based on: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..",
+        "stakeholderEvidence": "Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking.",
         "acceptanceCriteria": [
-          "Given any ranked candidate, When clicked by an HR user, Then the system renders a breakdown modal with skills overlap percentage, project badge evaluations, and textual justifications."
+          "Given a ranked candidate profile, When opened in recruiter UI, Then the system displays matched skill %, project impact score, and top 3 justification reasons.",
+          "Given a candidate with missing prerequisite skills, When viewed, Then missing requirements are highlighted in amber."
         ],
-        "sourceStatement": "Do we need explainability? For example, why a candidate was ranked higher? / Yes, that would be useful.",
+        "sourceStatement": "Do we need explainability? / Yes, that would be useful.",
         "clarificationReference": "Clarification #q-exp-01: \"Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking.\"",
-        "verificationMethod": "UI End-to-End Test & Interpretability Review"
+        "verificationMethod": "Automated UI/UX Verification & Output Schema Validation"
       },
       {
         "id": "FR-04",
-        "title": "Batch Resume Screening & Ranked Export",
+        "title": "Fairness Audit & Demographic Parity Dashboard",
         "category": "Functional",
-        "description": "The system shall support batch uploads of up to 100 resumes simultaneously, providing real-time progress indicators, automated ranking, and CSV/JSON export capabilities.",
-        "priority": "Should Have",
-        "targetUser": "HR Operations Lead",
+        "description": "The system shall execute automated Disparate Impact Ratio audits across gender and college tiers complying with: Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers..",
+        "priority": "Must Have",
+        "targetUser": "HR Compliance Officer",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-fair-01",
+        "originalText": "Yes, we must avoid bias, especially related to gender or college background.",
+        "refinedText": "The system shall perform automated fairness audits complying with: Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers..",
+        "stakeholderEvidence": "Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.",
         "acceptanceCriteria": [
-          "Given a batch upload of up to 100 resumes, When processed, Then the system completes ranking within the specified latency SLO and exports results."
+          "Given a candidate batch, When analyzed, Then names, gender indicators, and college brand names are redacted prior to feature extraction.",
+          "Given batch recommendations, When DIR is below 0.80 or above 1.25, Then the system alerts the compliance team."
         ],
-        "sourceStatement": "Should the system process resumes in real-time or batch mode?",
-        "clarificationReference": "Clarification #q-perf-01",
-        "verificationMethod": "End-to-End Load Testing & Export Integrity Check"
+        "sourceStatement": "Yes, we must avoid bias, especially related to gender or college background.",
+        "clarificationReference": "Clarification #q-fair-01: \"Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.\"",
+        "verificationMethod": "Automated Bias Test Suite on Synthetic Demographic Cohorts"
       }
     ],
     "nfrs": [
@@ -468,6 +484,11 @@
         "targetThreshold": "Single resume parsing must be under 1.5s (95th percentile) and batch upload of 100 resumes must complete within 30 seconds.",
         "priority": "Critical",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-perf-01",
+        "originalText": "It shouldn't be slow. / Ideally quick.",
+        "refinedText": "The system shall meet latency SLO: Single resume parsing must be under 1.5s (95th percentile) and batch upload of 100 resumes must complete within 30 seconds..",
+        "stakeholderEvidence": "Single resume parsing must be under 1.5s (95th percentile) and batch upload of 100 resumes must complete within 30 seconds.",
         "sourceStatement": "It shouldn't be slow. / Ideally quick.",
         "clarificationReference": "Clarification #q-perf-01: \"Single resume parsing must be under 1.5s (95th percentile) and batch upload of 100 resumes must complete within 30 seconds.\"",
         "verificationMethod": "Automated Performance Benchmark"
@@ -481,6 +502,11 @@
         "targetThreshold": "Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.",
         "priority": "Critical",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-fair-01",
+        "originalText": "Yes, we must avoid bias, especially related to gender or college background.",
+        "refinedText": "The system shall maintain fairness threshold: Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers..",
+        "stakeholderEvidence": "Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.",
         "sourceStatement": "Yes, we must avoid bias, especially related to gender or college background.",
         "clarificationReference": "Clarification #q-fair-01: \"Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.\"",
         "verificationMethod": "Automated Fairness Compliance Audit Suite"
@@ -494,6 +520,11 @@
         "targetThreshold": "Top-10 shortlisting Precision >= 85% and NDCG@10 >= 0.82 evaluated against blind human recruiter consensus.",
         "priority": "Critical",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-acc-01",
+        "originalText": "It should be good enough so that HR trusts it.",
+        "refinedText": "The candidate model shall achieve accuracy targets: Top-10 shortlisting Precision >= 85% and NDCG@10 >= 0.82 evaluated against blind human recruiter consensus..",
+        "stakeholderEvidence": "Top-10 shortlisting Precision >= 85% and NDCG@10 >= 0.82 evaluated against blind human recruiter consensus.",
         "sourceStatement": "It should be good enough so that HR trusts it.",
         "clarificationReference": "Clarification #q-acc-01: \"Top-10 shortlisting Precision >= 85% and NDCG@10 >= 0.82 evaluated against blind human recruiter consensus.\"",
         "verificationMethod": "Automated Model Evaluation Pipeline on Test Set"
@@ -502,11 +533,16 @@
         "id": "NFR-EXP-01",
         "title": "Model Explainability Response & Fidelity",
         "category": "Explainability",
-        "description": "Explainability attribution weights must achieve 100% fidelity with the scoring formula and render on client side within 200ms based on stakeholder requirement: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..",
+        "description": "Explainability attribution weights must achieve 100% fidelity with the scoring formula and render within 200ms based on stakeholder requirement: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..",
         "metric": "Explanation Latency & Fidelity",
         "targetThreshold": "Fidelity = 100%, Render Latency <= 200ms",
         "priority": "High",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-exp-01",
+        "originalText": "Do we need explainability? / Yes, that would be useful.",
+        "refinedText": "Attribution weights must achieve 100% fidelity based on: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..",
+        "stakeholderEvidence": "Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking.",
         "sourceStatement": "Do we need explainability? / Yes, that would be useful.",
         "clarificationReference": "Clarification #q-exp-01: \"Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking.\"",
         "verificationMethod": "Automated Attribution Validation Test"
@@ -520,6 +556,11 @@
         "targetThreshold": "AES-256 at rest, TLS 1.3 in transit, 100% audit logging",
         "priority": "Critical",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-data-01",
+        "originalText": "We have past resumes and hiring decisions, but they're not very structured.",
+        "refinedText": "AES-256 at rest, TLS 1.3 in transit, 100% audit logging for parsed resume data.",
+        "stakeholderEvidence": "Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs.",
         "sourceStatement": "We have past resumes and hiring decisions...",
         "clarificationReference": "Clarification #q-data-01: \"Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs.\"",
         "verificationMethod": "Automated SAST/DAST Security Scan"
@@ -533,6 +574,11 @@
         "targetThreshold": "MVP delivery in 4 weeks: Web-based candidate shortlisting portal supporting PDF/DOCX ingestion, JD matching, top-N ranking with explainability cards, and fairness metrics dashboard.",
         "priority": "High",
         "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-scope-01",
+        "originalText": "We need an MVP soon.",
+        "refinedText": "MVP milestone delivery target: MVP delivery in 4 weeks: Web-based candidate shortlisting portal supporting PDF/DOCX ingestion, JD matching, top-N ranking with explainability cards, and fairness metrics dashboard..",
+        "stakeholderEvidence": "MVP delivery in 4 weeks: Web-based candidate shortlisting portal supporting PDF/DOCX ingestion, JD matching, top-N ranking with explainability cards, and fairness metrics dashboard.",
         "sourceStatement": "We need an MVP soon.",
         "clarificationReference": "Clarification #q-scope-01: \"MVP delivery in 4 weeks: Web-based candidate shortlisting portal supporting PDF/DOCX ingestion, JD matching, top-N ranking with explainability cards, and fairness metrics dashboard.\"",
         "verificationMethod": "Sprint Review & User Acceptance Testing"
@@ -554,35 +600,33 @@
       "metrics": {
         "ambiguity": {
           "score": 100,
-          "totalVagueInstances": 25,
+          "totalVagueInstances": 23,
           "flaggedCount": 8,
           "flaggedItems": [
             {
               "id": "FR-BASE-01",
               "matches": [
+                "solid",
                 "raw_unclarified"
               ]
             },
             {
               "id": "FR-BASE-02",
               "matches": [
-                "solid",
-                "impactful",
-                "not strictly",
                 "raw_unclarified"
               ]
             },
             {
               "id": "FR-BASE-03",
               "matches": [
-                "unspecified",
+                "useful",
                 "raw_unclarified"
               ]
             },
             {
               "id": "FR-BASE-04",
               "matches": [
-                "not very structured",
+                "unspecified",
                 "raw_unclarified"
               ]
             },
@@ -660,25 +704,33 @@
       "summary": "Baseline raw specification (Poor rating, OQI: 8/100). High ambiguity (100%). 0 of 8 requirements resolved. Stakeholder clarification required."
     },
     "refined": {
-      "overallQualityIndex": 96,
+      "overallQualityIndex": 92,
       "qualityTier": "Excellent",
       "isFullyRefined": true,
       "requirementCount": {
         "total": 10,
         "frCount": 4,
         "nfrCount": 6,
-        "resolvedCount": 10,
-        "pendingCount": 0
+        "resolvedCount": 9,
+        "pendingCount": 1
       },
       "metrics": {
         "ambiguity": {
-          "score": 0,
-          "totalVagueInstances": 0,
-          "flaggedCount": 0,
-          "flaggedItems": []
+          "score": 10,
+          "totalVagueInstances": 2,
+          "flaggedCount": 1,
+          "flaggedItems": [
+            {
+              "id": "FR-02",
+              "matches": [
+                "pending clarification",
+                "solid"
+              ]
+            }
+          ]
         },
         "completeness": {
-          "score": 100,
+          "score": 94,
           "presentCategories": [
             "Performance",
             "Fairness & Bias",
@@ -696,35 +748,35 @@
             "Project Scope"
           ],
           "categoryCoveragePercentage": 100,
-          "resolvedCount": 10,
+          "resolvedCount": 9,
           "totalCount": 10,
-          "resolvedRatio": 100
+          "resolvedRatio": 90
         },
         "testability": {
-          "score": 100,
-          "testableCount": 10,
+          "score": 90,
+          "testableCount": 9,
           "totalCount": 10,
-          "testabilityPercentage": 100
+          "testabilityPercentage": 90
         },
         "specificity": {
-          "score": 80,
-          "specificCount": 8,
+          "score": 90,
+          "specificCount": 9,
           "totalCount": 10
         },
         "traceability": {
-          "score": 100,
+          "score": 95,
           "traceableCount": 10,
           "totalCount": 10
         }
       },
       "radarScores": {
-        "completeness": 100,
-        "testability": 100,
-        "specificity": 80,
-        "traceability": 100,
-        "clarity": 100
+        "completeness": 94,
+        "testability": 90,
+        "specificity": 90,
+        "traceability": 95,
+        "clarity": 90
       },
-      "summary": "High-precision specification (Excellent rating, OQI: 96/100). 10 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
+      "summary": "High-precision specification (Excellent rating, OQI: 92/100). 9 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
     },
     "comparison": {
       "baseline": {
@@ -741,35 +793,33 @@
         "metrics": {
           "ambiguity": {
             "score": 100,
-            "totalVagueInstances": 25,
+            "totalVagueInstances": 23,
             "flaggedCount": 8,
             "flaggedItems": [
               {
                 "id": "FR-BASE-01",
                 "matches": [
+                  "solid",
                   "raw_unclarified"
                 ]
               },
               {
                 "id": "FR-BASE-02",
                 "matches": [
-                  "solid",
-                  "impactful",
-                  "not strictly",
                   "raw_unclarified"
                 ]
               },
               {
                 "id": "FR-BASE-03",
                 "matches": [
-                  "unspecified",
+                  "useful",
                   "raw_unclarified"
                 ]
               },
               {
                 "id": "FR-BASE-04",
                 "matches": [
-                  "not very structured",
+                  "unspecified",
                   "raw_unclarified"
                 ]
               },
@@ -847,25 +897,33 @@
         "summary": "Baseline raw specification (Poor rating, OQI: 8/100). High ambiguity (100%). 0 of 8 requirements resolved. Stakeholder clarification required."
       },
       "refined": {
-        "overallQualityIndex": 96,
+        "overallQualityIndex": 92,
         "qualityTier": "Excellent",
         "isFullyRefined": true,
         "requirementCount": {
           "total": 10,
           "frCount": 4,
           "nfrCount": 6,
-          "resolvedCount": 10,
-          "pendingCount": 0
+          "resolvedCount": 9,
+          "pendingCount": 1
         },
         "metrics": {
           "ambiguity": {
-            "score": 0,
-            "totalVagueInstances": 0,
-            "flaggedCount": 0,
-            "flaggedItems": []
+            "score": 10,
+            "totalVagueInstances": 2,
+            "flaggedCount": 1,
+            "flaggedItems": [
+              {
+                "id": "FR-02",
+                "matches": [
+                  "pending clarification",
+                  "solid"
+                ]
+              }
+            ]
           },
           "completeness": {
-            "score": 100,
+            "score": 94,
             "presentCategories": [
               "Performance",
               "Fairness & Bias",
@@ -883,50 +941,50 @@
               "Project Scope"
             ],
             "categoryCoveragePercentage": 100,
-            "resolvedCount": 10,
+            "resolvedCount": 9,
             "totalCount": 10,
-            "resolvedRatio": 100
+            "resolvedRatio": 90
           },
           "testability": {
-            "score": 100,
-            "testableCount": 10,
+            "score": 90,
+            "testableCount": 9,
             "totalCount": 10,
-            "testabilityPercentage": 100
+            "testabilityPercentage": 90
           },
           "specificity": {
-            "score": 80,
-            "specificCount": 8,
+            "score": 90,
+            "specificCount": 9,
             "totalCount": 10
           },
           "traceability": {
-            "score": 100,
+            "score": 95,
             "traceableCount": 10,
             "totalCount": 10
           }
         },
         "radarScores": {
-          "completeness": 100,
-          "testability": 100,
-          "specificity": 80,
-          "traceability": 100,
-          "clarity": 100
+          "completeness": 94,
+          "testability": 90,
+          "specificity": 90,
+          "traceability": 95,
+          "clarity": 90
         },
-        "summary": "High-precision specification (Excellent rating, OQI: 96/100). 10 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
+        "summary": "High-precision specification (Excellent rating, OQI: 92/100). 9 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
       },
       "delta": {
-        "overallQualityIndex": 88,
-        "ambiguityReduction": 100,
-        "completenessGain": 100,
-        "testabilityGain": 100,
-        "specificityGain": 80,
-        "traceabilityGain": 50
+        "overallQualityIndex": 84,
+        "ambiguityReduction": 90,
+        "completenessGain": 94,
+        "testabilityGain": 90,
+        "specificityGain": 90,
+        "traceabilityGain": 45
       },
-      "percentageImprovement": 1100,
+      "percentageImprovement": 1050,
       "keyFindings": [
-        "Overall Requirement Quality: 8/100 (Poor) -> 96/100 (Excellent) [+88 pts].",
-        "Ambiguity level: 100% in baseline vs 0% in refined (100% reduction).",
-        "Testability: 0% in baseline vs 100% in refined.",
-        "Resolution rate: 10 of 10 requirements fully resolved."
+        "Overall Requirement Quality: 8/100 (Poor) -> 92/100 (Excellent) [+84 pts].",
+        "Ambiguity level: 100% in baseline vs 10% in refined (90% reduction).",
+        "Testability: 0% in baseline vs 90% in refined.",
+        "Resolution rate: 9 of 10 requirements fully resolved."
       ]
     }
   }

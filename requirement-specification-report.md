@@ -1,13 +1,13 @@
 # AI-Powered Requirement Analysis & Quality Report (Assignment 2)
-**Generated:** 24/8/2026, 9:36:04 pm | **Standard:** ISO/IEC/IEEE 29148
+**Generated:** 24/8/2026, 9:42:37 pm | **Standard:** ISO/IEC/IEEE 29148
 
 ## 1. Executive Summary & Quality Scorecard
 
 - **Without Clarification (Baseline Quality):** 8 / 100 (Poor)
-- **With AI Clarification (Refined Quality):** 96 / 100 (Excellent)
-- **Overall Quality Improvement:** +88 Points
-- **Ambiguity Reduction:** -100%
-- **Testability Gain:** +100%
+- **With AI Clarification (Refined Quality):** 92 / 100 (Excellent)
+- **Overall Quality Improvement:** +84 Points
+- **Ambiguity Reduction:** -90%
+- **Testability Gain:** +90%
 
 ## 2. Stakeholder Clarification Q&A Log
 
@@ -49,27 +49,26 @@
 - **Traceability:** Clarification #q-data-01: "Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs."
 - **Verification Method:** Automated Integration Test & JSON Schema Validation
 
-### FR-02: Deterministic Multi-Factor Candidate Scoring Engine [Priority: Must Have]
-- **Description:** The system shall calculate composite candidate relevance scores using stakeholder-defined weighting: Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers..
+### FR-02: Candidate Scoring (Pending Weighting Formula) [Priority: High]
+- **Description:** The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).
 - **Acceptance Criteria:**
-  - Given a job description and candidate profile, When scored, Then the final score strictly follows the stakeholder weighting formula.
-  - Given an exceptional fresher with high project complexity, When ranked against generic experience, Then the fresher outranks when composite score is higher.
-- **Traceability:** Clarification #q-fair-01: "Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers."
-- **Verification Method:** Unit Test & Ranking Algorithm Regression Suite
+  - Candidates are ranked
 
 ### FR-03: Structured Explainability & Match Scorecard [Priority: Must Have]
-- **Description:** The system shall display a candidate match scorecard based on stakeholder specification: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..
+- **Description:** The system shall generate an interactive candidate match scorecard satisfying stakeholder preference: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..
 - **Acceptance Criteria:**
-  - Given any ranked candidate, When clicked by an HR user, Then the system renders a breakdown modal with skills overlap percentage, project badge evaluations, and textual justifications.
+  - Given a ranked candidate profile, When opened in recruiter UI, Then the system displays matched skill %, project impact score, and top 3 justification reasons.
+  - Given a candidate with missing prerequisite skills, When viewed, Then missing requirements are highlighted in amber.
 - **Traceability:** Clarification #q-exp-01: "Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking."
-- **Verification Method:** UI End-to-End Test & Interpretability Review
+- **Verification Method:** Automated UI/UX Verification & Output Schema Validation
 
-### FR-04: Batch Resume Screening & Ranked Export [Priority: Should Have]
-- **Description:** The system shall support batch uploads of up to 100 resumes simultaneously, providing real-time progress indicators, automated ranking, and CSV/JSON export capabilities.
+### FR-04: Fairness Audit & Demographic Parity Dashboard [Priority: Must Have]
+- **Description:** The system shall execute automated Disparate Impact Ratio audits across gender and college tiers complying with: Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers..
 - **Acceptance Criteria:**
-  - Given a batch upload of up to 100 resumes, When processed, Then the system completes ranking within the specified latency SLO and exports results.
-- **Traceability:** Clarification #q-perf-01
-- **Verification Method:** End-to-End Load Testing & Export Integrity Check
+  - Given a candidate batch, When analyzed, Then names, gender indicators, and college brand names are redacted prior to feature extraction.
+  - Given batch recommendations, When DIR is below 0.80 or above 1.25, Then the system alerts the compliance team.
+- **Traceability:** Clarification #q-fair-01: "Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers."
+- **Verification Method:** Automated Bias Test Suite on Synthetic Demographic Cohorts
 
 ## 4. Categorized Non-Functional Requirements (NFR)
 
@@ -92,7 +91,7 @@
 - **Verification Method:** Automated Model Evaluation Pipeline on Test Set
 
 ### NFR-EXP-01: Model Explainability Response & Fidelity [Category: Explainability] [Priority: High]
-- **Description:** Explainability attribution weights must achieve 100% fidelity with the scoring formula and render on client side within 200ms based on stakeholder requirement: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..
+- **Description:** Explainability attribution weights must achieve 100% fidelity with the scoring formula and render within 200ms based on stakeholder requirement: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..
 - **Target Metric / Threshold:** `Fidelity = 100%, Render Latency <= 200ms`
 - **Traceability:** Clarification #q-exp-01: "Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking."
 - **Verification Method:** Automated Attribution Validation Test
@@ -113,8 +112,8 @@
 
 | Evaluation Dimension | Without Clarification | With Clarification | Improvement |
 | :--- | :--- | :--- | :--- |
-| **Overall Quality Index** | 8/100 | 96/100 | +88 pts |
-| **Ambiguity Score** | 100% | 12% | -88% |
-| **Completeness Coverage** | 35% | 100% | +65% |
-| **Testability & Verifiability** | 25% | 100% | +75% |
-| **Specificity & Measurability** | 30% | 80% | +50% |
+| **Overall Quality Index** | 8/100 | 92/100 | +84 pts |
+| **Ambiguity Score** | 100% | 10% | -90% |
+| **Completeness Coverage** | 35% | 94% | +59% |
+| **Testability & Verifiability** | 25% | 90% | +65% |
+| **Specificity & Measurability** | 30% | 90% | +60% |

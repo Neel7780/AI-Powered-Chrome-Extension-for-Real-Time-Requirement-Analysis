@@ -1,26 +1,33 @@
 /**
  * Real AI Service Layer powered by Google Gemini (@google/generative-ai)
  * with robust offline rule-based NLP Fallback Engine.
+ * 
+ * Implements:
+ * - Real-time contextual ambiguity detection & question generation
+ * - Response-driven requirement refinement strictly using stakeholder evidence
+ * - Provenance metadata and traceability tracking
+ * - Conflict detection for contradictory stakeholder answers
+ * - Safe structured logging (without exposing secrets or private payloads)
  */
 
 require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const ambiguityDetector = require('./ambiguity-detector');
-const qualityEvaluator = require('./quality-evaluator');
+const requirementGenerator = require('./requirement-generator');
 
 class AIService {
   constructor() {
-    this.apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || null;
+    this.apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || null;
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     this.initGemini();
   }
 
   initGemini(customKey = null) {
-    const key = customKey || this.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const key = customKey || this.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (key) {
       this.genAI = new GoogleGenerativeAI(key);
-      // Use gemini-2.5-flash (standard in recent labs) with fallback to gemini-1.5-flash
       this.model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
+        model: this.modelName,
         generationConfig: {
           temperature: 0.1,
           responseMimeType: 'application/json'
@@ -40,6 +47,8 @@ class AIService {
   async analyzeLiveUtterance(payload) {
     const { text, speaker = 'Speaker', timestamp = '00:00', customApiKey } = payload;
     if (customApiKey) this.initGemini(customApiKey);
+
+    const startTime = Date.now();
 
     // If Gemini is available, query Gemini LLM
     if (this.hasActiveAI && this.model) {
@@ -64,29 +73,33 @@ Return a strict JSON object with this exact structure:
       "explanation": string
     }
   ],
-  "suggestedClarificationTarget": string or null,
+  "suggestedClarificationTarget": string (e.g. "Performance (Latency)", "Fairness (Bias Mitigation)", "Accuracy (Precision SLO)"),
   "candidateQuestion": {
     "id": "q-${Date.now()}",
-    "category": string (e.g. "Performance", "Fairness & Bias", "Accuracy", "Explainability", "Data Schema", "Scope"),
+    "category": string,
     "triggeredBy": "${text.replace(/"/g, '\\"')}",
-    "question": string (precise engineering question asking for verifiable metric or formula),
-    "suggestedOptions": [string, string, string] (3 distinct quantifiable SLO/metric choices),
-    "severity": "HIGH" | "CRITICAL"
-  } (or null if isAmbiguous is false)
-}`;
+    "question": string (concise, targeted question to establish quantitative criteria),
+    "suggestedOptions": [string, string, string] (3 concrete, verifiable options e.g. ["< 1.5s (p95)", "< 3.0s", "Custom"]),
+    "severity": "MEDIUM" | "HIGH" | "CRITICAL",
+    "lifecycleStatus": "OPEN"
+  }
+}
+If the statement is NOT ambiguous (or is a question), return isAmbiguous: false, ambiguityScore: 0, detectedFlags: [], candidateQuestion: null.`;
 
-        const result = await this.model.generateContent(prompt);
-        const responseText = result.response.text();
+        const response = await this.model.generateContent(prompt);
+        const responseText = response.response.text();
         const parsed = JSON.parse(responseText);
 
         if (parsed && typeof parsed.isAmbiguous === 'boolean') {
+          const latencyMs = Date.now() - startTime;
+          console.log(`[AI] provider=gemini model=${this.modelName} operation=ambiguity_detection latency=${latencyMs}ms status=success`);
           return {
             ...parsed,
-            aiSource: 'gemini-2.5-flash'
+            aiSource: this.modelName
           };
         }
       } catch (err) {
-        console.warn('[AIService] Gemini API call fallback to rule engine:', err.message);
+        console.warn(`[AI] provider=gemini operation=ambiguity_detection error="${err.message}" -> falling back to rule engine`);
       }
     }
 
@@ -97,6 +110,9 @@ Return a strict JSON object with this exact structure:
       candidateQuestion = this.generateFallbackQuestion(text, analysis.detectedFlags);
     }
 
+    const latencyMs = Date.now() - startTime;
+    console.log(`[AI] provider=rule_engine operation=ambiguity_detection latency=${latencyMs}ms status=fallback`);
+
     return {
       ...analysis,
       candidateQuestion,
@@ -105,216 +121,164 @@ Return a strict JSON object with this exact structure:
   }
 
   /**
-   * Synthesize baseline and response-driven refined requirements using Gemini LLM
+   * Conflict Detection for Stakeholder Clarification Answers
+   * Flags when a new stakeholder response conflicts with a previously given response
+   */
+  detectClarificationConflict(existingClarifications = [], updatedClarificationId, newAnswer) {
+    if (!newAnswer || newAnswer.trim().length === 0) return { hasConflict: false };
+
+    const target = existingClarifications.find(c => c.id === updatedClarificationId);
+    if (!target) return { hasConflict: false };
+
+    const existingAnswer = target.selectedResponse;
+    if (existingAnswer && existingAnswer.trim().length > 0 && existingAnswer.trim() !== newAnswer.trim()) {
+      return {
+        hasConflict: true,
+        clarificationId: updatedClarificationId,
+        category: target.category,
+        previousAnswer: existingAnswer.trim(),
+        newAnswer: newAnswer.trim(),
+        message: `Warning: Updated response "${newAnswer}" conflicts with previously specified "${existingAnswer}" for ${target.category}. Requirement will adopt latest confirmed input.`
+      };
+    }
+
+    return { hasConflict: false };
+  }
+
+  /**
+   * Duplicate Question Suppression
+   */
+  filterDuplicateClarifications(existingQuestions = [], newQuestion) {
+    if (!newQuestion) return null;
+    const exists = existingQuestions.some(eq => 
+      eq.id === newQuestion.id || 
+      (eq.category === newQuestion.category && eq.triggeredBy === newQuestion.triggeredBy) ||
+      (eq.question && eq.question.toLowerCase() === newQuestion.question.toLowerCase())
+    );
+    return exists ? null : newQuestion;
+  }
+
+  /**
+   * Synthesize baseline and response-driven refined requirements
    */
   async generateRequirementsWithAI(utterances = [], clarifications = [], domain = 'HR Tech') {
-    if (this.hasActiveAI && this.model && utterances.length > 0) {
-      try {
-        const answeredClarifications = clarifications.filter(c => c.selectedResponse && c.selectedResponse.trim().length > 0);
-        const unansweredClarifications = clarifications.filter(c => !c.selectedResponse || c.selectedResponse.trim().length === 0);
-
-        const prompt = `You are a Principal Software Requirements Engineer following ISO/IEC/IEEE 29148.
-Given this meeting transcript and stakeholder clarifications:
-
-TRANSCRIPT:
-${utterances.map(u => `${u.speaker}: ${u.text}`).join('\n')}
-
-STAKEHOLDER CLARIFICATIONS LOG:
-- Explicitly Answered by Stakeholder:
-${answeredClarifications.length > 0 ? answeredClarifications.map(c => `[${c.category}] Q: ${c.question} -> Stakeholder Answer: "${c.selectedResponse}" (Triggered by: "${c.triggeredBy}")`).join('\n') : 'NONE (Stakeholder has not answered any clarifications yet)'}
-
-- Unanswered Clarifications (Pending):
-${unansweredClarifications.length > 0 ? unansweredClarifications.map(c => `[${c.category}] Q: ${c.question} -> UNRESOLVED (Triggered by: "${c.triggeredBy}")`).join('\n') : 'NONE'}
-
-TASK:
-Generate two complete requirement sets:
-1. "baseline" (Without Clarification): Raw, unclarified requirements derived directly from stakeholder quotes, keeping subjective qualifiers and noting ambiguity flags.
-2. "refined" (With Clarification):
-   CRITICAL RULE:
-   - For aspects where the stakeholder EXPLICITLY answered: Formulate rigorous, unambiguous IEEE 830 / ISO 29148 requirements with concrete numerical SLOs, Given-When-Then acceptance criteria, and explicit formulas provided by the stakeholder.
-   - For aspects where the stakeholder DID NOT answer: Do NOT invent arbitrary metrics. Mark them with status: "PENDING_CLARIFICATION", targetThreshold: "Unspecified - Awaiting Stakeholder Input", and keep ambiguity flags present.
-
-Return a strict JSON object:
-{
-  "baseline": {
-    "frs": [
-      {
-        "id": "FR-BASE-01",
-        "title": string,
-        "category": "Functional",
-        "description": string,
-        "priority": "High" | "Medium",
-        "acceptanceCriteria": [string],
-        "sourceStatement": string,
-        "ambiguityFlags": [string]
-      }
-    ],
-    "nfrs": [
-      {
-        "id": "NFR-BASE-PERF-01",
-        "title": string,
-        "category": "Performance" | "Fairness & Bias" | "Accuracy & Quality" | "Security & Privacy" | "Explainability" | "Project Scope",
-        "description": string,
-        "metric": string,
-        "targetThreshold": string,
-        "priority": "High" | "Medium",
-        "sourceStatement": string,
-        "ambiguityFlags": [string]
-      }
-    ]
-  },
-  "refined": {
-    "frs": [
-      {
-        "id": "FR-01",
-        "title": string,
-        "category": "Functional",
-        "description": string,
-        "priority": "Must Have" | "Should Have" | "Could Have",
-        "targetUser": string,
-        "acceptanceCriteria": [string],
-        "sourceStatement": string,
-        "clarificationReference": string,
-        "verificationMethod": string,
-        "status": "RESOLVED" | "PENDING_CLARIFICATION"
-      }
-    ],
-    "nfrs": [
-      {
-        "id": "NFR-PERF-01",
-        "title": string,
-        "category": "Performance" | "Fairness & Bias" | "Accuracy & Quality" | "Security & Privacy" | "Explainability" | "Project Scope",
-        "description": string,
-        "metric": string,
-        "targetThreshold": string,
-        "priority": "Critical" | "High" | "Medium",
-        "sourceStatement": string,
-        "clarificationReference": string,
-        "verificationMethod": string,
-        "status": "RESOLVED" | "PENDING_CLARIFICATION"
-      }
-    ]
-  }
-}`;
-
-        const result = await this.model.generateContent(prompt);
-        const responseText = result.response.text();
-        const parsed = JSON.parse(responseText);
-
-        if (parsed.baseline && parsed.refined) {
-          return {
-            baseline: parsed.baseline,
-            refined: parsed.refined,
-            metadata: {
-              domain,
-              utteranceCount: utterances.length,
-              clarificationCount: clarifications.length,
-              answeredClarificationsCount: answeredClarifications.length,
-              aiSource: 'gemini-2.5-flash',
-              generatedAt: new Date().toISOString()
-            }
-          };
-        }
-      } catch (err) {
-        console.warn('[AIService] Gemini requirements generation fallback:', err.message);
-      }
-    }
-
-    // Fallback to response-driven requirement generator
-    const requirementGenerator = require('./requirement-generator');
-    return requirementGenerator.generateRequirements(utterances, clarifications, domain);
+    // Always execute response-driven requirement generator to enforce strictly stakeholder-provenanced rules
+    const result = requirementGenerator.generateRequirements(utterances, clarifications, domain);
+    return result;
   }
 
-  generateFallbackQuestion(text, detectedFlags = []) {
-    const textLower = text.toLowerCase();
-    
-    if (textLower.includes('slow') || textLower.includes('quick') || textLower.includes('fast') || textLower.includes('real-time')) {
+  generateFallbackQuestion(text, detectedFlags) {
+    const lower = text.toLowerCase();
+    const id = `q-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    if (/slow|quick|fast|latency|speed/i.test(lower)) {
       return {
-        id: `q-${Date.now()}-perf`,
+        id,
         category: 'Performance',
         triggeredBy: text,
-        question: 'What is the required response latency target (e.g. p95 < 1.5s) and throughput for single vs batch processing?',
+        question: 'What is the required end-to-end response time / latency target for processing a single resume and batch uploads?',
         suggestedOptions: [
-          'Single resume < 1.5s (p95), batch of 100 < 30s',
-          'Single resume < 500ms, batch of 500 < 2 minutes',
-          'Sub-second real-time streaming response'
+          'Single resume < 1.5s (p95); Batch of 100 < 30s',
+          'Single resume < 3.0s (p95); Batch of 100 < 60s',
+          'Single resume < 500ms real-time'
         ],
-        severity: 'HIGH'
+        severity: 'HIGH',
+        lifecycleStatus: 'OPEN'
       };
     }
 
-    if (textLower.includes('bias') || textLower.includes('gender') || textLower.includes('college') || textLower.includes('fair')) {
+    if (/bias|fairness|gender|college|background/i.test(lower)) {
       return {
-        id: `q-${Date.now()}-fair`,
+        id,
         category: 'Fairness & Bias',
         triggeredBy: text,
-        question: 'How should algorithmic bias be measured and mitigated (e.g. Disparate Impact Ratio between 0.80 and 1.25, PII masking)?',
+        question: 'What specific quantitative metric and demographic audit standard should govern bias mitigation across gender and colleges?',
         suggestedOptions: [
-          'Mask PII and college names before scoring + enforce Disparate Impact Ratio (DIR) in [0.80, 1.25]',
-          'Demographic parity post-processing calibration',
-          'Blind resume parsing with adversarial debiasing layers'
+          'Disparate Impact Ratio 0.80 - 1.25 across gender & tier-1/2/3 colleges with PII redaction',
+          'Demographic Parity Difference < 5% with automated PII masking',
+          'Equal Opportunity Difference < 0.05 across protected groups'
         ],
-        severity: 'CRITICAL'
+        severity: 'CRITICAL',
+        lifecycleStatus: 'OPEN'
       };
     }
 
-    if (textLower.includes('trust') || textLower.includes('good enough') || textLower.includes('accuracy')) {
+    if (/trust|good enough|accuracy|reliable/i.test(lower)) {
       return {
-        id: `q-${Date.now()}-acc`,
+        id,
         category: 'Accuracy & Quality',
         triggeredBy: text,
         question: 'What objective accuracy metric defines "good enough for HR trust" (e.g. Precision@10 >= 85%, NDCG >= 0.82)?',
         suggestedOptions: [
-          'Top-10 Precision >= 85% and NDCG@10 >= 0.82 compared to senior recruiter consensus',
-          'F1-Score >= 90% across shortlisted candidates',
-          'Mean Reciprocal Rank (MRR) >= 0.75 on historical test sets'
+          'Top-10 Precision >= 85% and NDCG@10 >= 0.82 against senior human recruiter consensus test set',
+          'Top-5 Match Recall >= 90% against validated historical hiring outcomes',
+          'Candidate ranking ranking agreement with HR panel >= 80% Cohen Kappa'
         ],
-        severity: 'HIGH'
+        severity: 'HIGH',
+        lifecycleStatus: 'OPEN'
       };
     }
 
-    if (textLower.includes('solid') || textLower.includes('impactful') || textLower.includes('relevance') || textLower.includes('fresher')) {
+    if (/explain|scorecard|why|reason/i.test(lower)) {
       return {
-        id: `q-${Date.now()}-rel`,
-        category: 'Scoring & Weighting',
-        triggeredBy: text,
-        question: 'What exact formula or weightings should balance skills, project complexity, and years of experience?',
-        suggestedOptions: [
-          '45% Tech stack match, 35% Project impact, 20% Relevant experience',
-          '50% Skills match, 50% Verified project complexity with fresher bonus',
-          'Semantic embedding cosine similarity with 3-tier company filter'
-        ],
-        severity: 'HIGH'
-      };
-    }
-
-    if (textLower.includes('explain') || textLower.includes('why') || textLower.includes('useful')) {
-      return {
-        id: `q-${Date.now()}-exp`,
+        id,
         category: 'Explainability',
         triggeredBy: text,
-        question: 'What explainability format should be rendered for HR users (e.g., feature attribution breakdown)?',
+        question: 'How should candidate ranking explainability and skill matching scorecards be presented to HR recruiters?',
         suggestedOptions: [
-          'Structured scorecard: matched skills %, project rating, and 3 key justification bullets',
-          'Interactive SHAP feature importance chart with highlighted JD keywords',
-          'Side-by-side JD vs candidate qualification comparison table'
+          'Interactive scorecard showing matched skill %, project impact score, and top 3 positive/negative bullet reasons',
+          'Visual radar chart comparing candidate profile against job description benchmarks',
+          'Textual explanation summary with key qualification highlights'
         ],
-        severity: 'MEDIUM'
+        severity: 'MEDIUM',
+        lifecycleStatus: 'OPEN'
       };
     }
 
-    const primaryCategory = detectedFlags[0] ? detectedFlags[0].category : 'General';
+    if (/solid|good companies|impactful|strong fresher|relevance/i.test(lower)) {
+      return {
+        id,
+        category: 'Scoring Algorithm',
+        triggeredBy: text,
+        question: 'What weighting formula should calculate overall profile strength and rank candidates?',
+        suggestedOptions: [
+          '45% Skills & Technical Match + 35% Project Complexity & Impact + 20% Relevant Experience',
+          '50% Verified Skills + 30% Past Company / Domain Relevance + 20% Education & Projects',
+          'Equal weighting across Skills, Experience, and Project Impact'
+        ],
+        severity: 'HIGH',
+        lifecycleStatus: 'OPEN'
+      };
+    }
+
+    if (/soon|mvp|timeline|deadline/i.test(lower)) {
+      return {
+        id,
+        category: 'Project Scope',
+        triggeredBy: text,
+        question: 'What is the target MVP delivery timeframe and essential scope boundary for initial release?',
+        suggestedOptions: [
+          '4-week MVP milestone covering PDF/DOCX ingestion, JD matching, top-10 ranking, and scorecard',
+          '6-week MVP milestone with full ATS integration and bias audit dashboard',
+          '2-week prototype with basic resume text extraction and skill keyword matching'
+        ],
+        severity: 'MEDIUM',
+        lifecycleStatus: 'OPEN'
+      };
+    }
+
     return {
-      id: `q-${Date.now()}-gen`,
-      category: primaryCategory,
+      id,
+      category: 'Requirement Clarification',
       triggeredBy: text,
-      question: `Could you clarify the specific measurable criteria, threshold, or definition for "${text}"?`,
+      question: `Please clarify the quantitative criteria or operational boundaries for: "${text}"`,
       suggestedOptions: [
-        'Specify concrete numerical threshold or SLO',
-        'Define structured standard or data schema',
-        'Establish automated pass/fail acceptance rule'
+        'Establish quantitative benchmark and acceptance criteria',
+        'Defer to phase 2 backlog specification',
+        'Use standard industry baseline standard'
       ],
-      severity: 'MEDIUM'
+      severity: 'MEDIUM',
+      lifecycleStatus: 'OPEN'
     };
   }
 }
