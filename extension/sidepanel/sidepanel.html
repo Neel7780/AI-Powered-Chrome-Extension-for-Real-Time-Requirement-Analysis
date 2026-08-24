@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Requirement Analysis Side Panel</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sidepanel-container">
+    <!-- Header -->
+    <header class="sidepanel-header">
+      <div class="header-left">
+        <div class="brand-badge">RE-AI</div>
+        <div>
+          <h2 class="title">Live Requirement Copilot</h2>
+          <div class="subtitle">
+            <span class="live-pulse"></span>
+            <span id="meeting-source-label">Listening for Zoom / Meet Transcripts</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn-icon" id="btn-load-pdf-sample" title="Load Assignment PDF Conversation">📄 Sample</button>
+        <button class="btn-icon danger" id="btn-clear-all" title="Clear All Data">🗑</button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-stream">
+        <span>Transcript</span>
+        <span class="tab-badge" id="badge-stream-count">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-clarifications">
+        <span>Clarifications</span>
+        <span class="tab-badge warning" id="badge-clarify-count">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-requirements">
+        <span>FR / NFR</span>
+        <span class="tab-badge success" id="badge-req-count">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-quality">
+        <span>Quality Audit</span>
+        <span class="tab-badge highlight" id="badge-quality-score">--</span>
+      </button>
+    </nav>
+
+    <!-- Main Content Tabs -->
+    <main class="tabs-content">
+      <!-- TAB 1: Live Transcript & Ambiguity Stream -->
+      <section class="tab-pane active" id="tab-stream">
+        <div class="stream-controls">
+          <input type="text" id="manual-transcript-input" placeholder="Type or paste meeting speech..." />
+          <button class="btn-primary" id="btn-send-manual">Add</button>
+        </div>
+        <div class="ambiguity-summary-bar" id="ambiguity-summary-bar">
+          <span class="bar-title">Ambiguity Detection:</span>
+          <span class="bar-val" id="stream-ambiguity-count">0 flagged statements</span>
+        </div>
+        <div class="transcript-feed" id="transcript-feed">
+          <div class="empty-state">
+            <div class="empty-icon">🎙️</div>
+            <p>Start speaking in Zoom / Google Meet or click "Sample" to load the assignment transcript.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: Real-Time Clarification Q&A -->
+      <section class="tab-pane" id="tab-clarifications">
+        <div class="section-intro">
+          <p>Answer AI-generated clarification questions in real-time to eliminate requirement ambiguity.</p>
+        </div>
+        <div class="clarifications-list" id="clarifications-list">
+          <div class="empty-state">
+            <div class="empty-icon">💡</div>
+            <p>No clarification questions pending yet. Ambiguous statements in the transcript will trigger targeted questions here.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: Extracted Requirements (FR & NFR) -->
+      <section class="tab-pane" id="tab-requirements">
+        <div class="req-filter-bar">
+          <button class="filter-chip active" data-filter="all">All (<span id="count-all-reqs">0</span>)</button>
+          <button class="filter-chip" data-filter="fr">Functional (<span id="count-fr-reqs">0</span>)</button>
+          <button class="filter-chip" data-filter="nfr">Non-Functional (<span id="count-nfr-reqs">0</span>)</button>
+        </div>
+        <div class="requirements-list" id="requirements-list">
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <p>Requirements will be automatically synthesized from the meeting transcript and clarification answers.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: Quality Evaluation & Comparison -->
+      <section class="tab-pane" id="tab-quality">
+        <div class="quality-scorecard-hero">
+          <div class="score-pill baseline">
+            <span class="score-label">Without Clarification</span>
+            <span class="score-num" id="qual-baseline-score">30%</span>
+            <span class="score-tier" id="qual-baseline-tier">Poor</span>
+          </div>
+          <div class="score-arrow">➔</div>
+          <div class="score-pill refined">
+            <span class="score-label">With AI Clarification</span>
+            <span class="score-num" id="qual-refined-score">92%</span>
+            <span class="score-tier" id="qual-refined-tier">Excellent</span>
+          </div>
+        </div>
+
+        <div class="delta-badge" id="qual-delta-badge">
+          +62 Points Overall Quality Improvement (+207%)
+        </div>
+
+        <!-- Comparative Metrics Breakdown -->
+        <div class="metrics-breakdown">
+          <div class="metric-row">
+            <div class="m-header">
+              <span class="m-name">Ambiguity Level (Lower is Better)</span>
+              <span class="m-diff" id="m-diff-amb">-66%</span>
+            </div>
+            <div class="dual-progress">
+              <div class="bar bar-base" style="width: 78%;" title="Without Clarification: 78%"></div>
+              <div class="bar bar-ref" style="width: 12%;" title="With Clarification: 12%"></div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="m-header">
+              <span class="m-name">Testability / Verifiability</span>
+              <span class="m-diff positive" id="m-diff-test">+67%</span>
+            </div>
+            <div class="dual-progress">
+              <div class="bar bar-base" style="width: 25%;" title="Without Clarification: 25%"></div>
+              <div class="bar bar-ref" style="width: 92%;" title="With Clarification: 92%"></div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="m-header">
+              <span class="m-name">Completeness & NFR Coverage</span>
+              <span class="m-diff positive" id="m-diff-comp">+59%</span>
+            </div>
+            <div class="dual-progress">
+              <div class="bar bar-base" style="width: 35%;" title="Without Clarification: 35%"></div>
+              <div class="bar bar-ref" style="width: 94%;" title="With Clarification: 94%"></div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="m-header">
+              <span class="m-name">Specificity & Measurability</span>
+              <span class="m-diff positive" id="m-diff-spec">+60%</span>
+            </div>
+            <div class="dual-progress">
+              <div class="bar bar-base" style="width: 30%;" title="Without Clarification: 30%"></div>
+              <div class="bar bar-ref" style="width: 90%;" title="With Clarification: 90%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="comparison-details">
+          <h4>Key Engineering Impact:</h4>
+          <ul id="key-findings-list">
+            <li>Eliminated fuzzy adjectives ("good enough", "solid", "quick") with concrete SLOs.</li>
+            <li>Introduced Disparate Impact Ratio (0.80 - 1.25) for ethical fairness auditing.</li>
+            <li>Specified precise latency SLO (< 1.5s single resume, < 30s batch of 100).</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Export Bar -->
+    <footer class="sidepanel-footer">
+      <span class="export-label">Export SRS:</span>
+      <div class="export-buttons">
+        <button class="btn-export" id="btn-export-pdf" title="Export PDF Report">PDF</button>
+        <button class="btn-export" id="btn-export-docx" title="Export Word Document">DOCX</button>
+        <button class="btn-export" id="btn-export-txt" title="Export Markdown / TXT">TXT</button>
+        <button class="btn-export" id="btn-export-json" title="Export JSON">JSON</button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="../shared/nlp-engine.js"></script>
+  <script src="../shared/sample-data.js"></script>
+  <script src="../shared/api.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

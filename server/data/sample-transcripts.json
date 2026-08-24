@@ -1,0 +1,317 @@
+[
+  {
+    "id": "resume-analyzer-assignment",
+    "title": "AI Resume Analyzer Meeting (Assignment PDF Conversation)",
+    "description": "Stakeholder meeting discussing an AI-powered resume screening and candidate ranking system for software engineering roles.",
+    "domain": "HR Tech / AI Recruitment",
+    "utterances": [
+      {
+        "speaker": "Hiring Manager",
+        "text": "We need to build an AI-based resume analyzer that can automatically shortlist candidates for our software engineering roles.",
+        "timestamp": "00:05",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "Okay. How should the system decide which candidates to shortlist?",
+        "timestamp": "00:12",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "It should rank them based on relevance to the job description.",
+        "timestamp": "00:18",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["relevance to the job description"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "How are we defining relevance?",
+        "timestamp": "00:24",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "Mainly skills and experience. And overall profile strength.",
+        "timestamp": "00:30",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["skills and experience", "overall profile strength"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "What does overall profile strength include?",
+        "timestamp": "00:36",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "Things like good companies, solid projects, impactful work.",
+        "timestamp": "00:42",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["good companies", "solid projects", "impactful work"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "Should we prioritize years of experience?",
+        "timestamp": "00:49",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "Yes, but not strictly. Sometimes a strong fresher is better than someone with 5 average years.",
+        "timestamp": "00:56",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["not strictly", "strong fresher", "average years"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "Do we have historical hiring data to train the system?",
+        "timestamp": "01:03",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "We have past resumes and hiring decisions, but they're not very structured.",
+        "timestamp": "01:10",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["not very structured"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "How accurate should the system be?",
+        "timestamp": "01:16",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "It should be good enough so that HR trusts it.",
+        "timestamp": "01:22",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["good enough so that HR trusts it"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "Do we need explainability? For example, why a candidate was ranked higher?",
+        "timestamp": "01:29",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "Yes, that would be useful.",
+        "timestamp": "01:34",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["useful"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "Are there any constraints regarding bias or fairness?",
+        "timestamp": "01:40",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "Yes, we must avoid bias, especially related to gender or college background.",
+        "timestamp": "01:47",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["avoid bias", "especially related to gender or college background"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "Should the system process resumes in real-time or batch mode?",
+        "timestamp": "01:54",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "It shouldn't be slow.",
+        "timestamp": "02:00",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["shouldn't be slow"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "What is the expected response time per resume?",
+        "timestamp": "02:06",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "Ideally quick.",
+        "timestamp": "02:11",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["ideally quick"]
+      },
+      {
+        "speaker": "ML Engineer",
+        "text": "What is the timeline for delivery?",
+        "timestamp": "02:17",
+        "hasAmbiguity": false
+      },
+      {
+        "speaker": "Hiring Manager",
+        "text": "We need an MVP soon.",
+        "timestamp": "02:22",
+        "hasAmbiguity": true,
+        "ambiguousPhrases": ["MVP soon"]
+      }
+    ],
+    "sampleClarifications": [
+      {
+        "id": "q-perf-01",
+        "category": "Performance",
+        "question": "What is the precise latency threshold for single resume parsing and batch screening?",
+        "triggeredBy": "It shouldn't be slow / Ideally quick",
+        "options": [
+          "Single resume < 1.5 seconds, batch of 100 resumes < 30 seconds",
+          "Single resume < 5 seconds, batch of 500 resumes < 5 minutes",
+          "Real-time streaming parsing < 500ms per resume"
+        ],
+        "selectedResponse": "Single resume parsing must be under 1.5s (95th percentile) and batch upload of 100 resumes must complete within 30 seconds."
+      },
+      {
+        "id": "q-fair-01",
+        "category": "Fairness & Bias",
+        "question": "How should bias mitigation be enforced and measured across gender and educational background?",
+        "triggeredBy": "Yes, we must avoid bias, especially related to gender or college background.",
+        "options": [
+          "Pre-processing anonymization (mask name, gender, college tier) + Disparate Impact Ratio >= 0.80",
+          "Post-processing calibration across demographic bins with statistical parity",
+          "Blind screening with adversarial debiasing in embedding layer"
+        ],
+        "selectedResponse": "Anonymize PII and college names before scoring; enforce Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers."
+      },
+      {
+        "id": "q-acc-01",
+        "category": "Accuracy & Quality",
+        "question": "What quantifiable accuracy metric defines 'good enough for HR trust' for candidate shortlisting?",
+        "triggeredBy": "It should be good enough so that HR trusts it.",
+        "options": [
+          "Top-10 Ranking Precision >= 85% and Recall@20 >= 80% compared to senior technical recruiter consensus",
+          "F1-Score >= 0.90 across all shortlisted candidates",
+          "Mean Reciprocal Rank (MRR) >= 0.75 on historical test sets"
+        ],
+        "selectedResponse": "Top-10 shortlisting Precision >= 85% and NDCG@10 >= 0.82 evaluated against blind human recruiter consensus."
+      },
+      {
+        "id": "q-exp-01",
+        "category": "Explainability",
+        "question": "What specific explainability format is required for why a candidate is ranked or disqualified?",
+        "triggeredBy": "Yes, that would be useful.",
+        "options": [
+          "SHAP/feature breakdown showing matched skills %, years of relevant experience, and key project impact badges",
+          "Textual bullet points highlighting top 3 strengths and missing prerequisite skills",
+          "Interactive match scorecard with side-by-side JD skill overlap"
+        ],
+        "selectedResponse": "Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking."
+      },
+      {
+        "id": "q-data-01",
+        "category": "Data & Functional",
+        "question": "What resume file formats, parsing schemas, and unstructured historical data cleanup methods must be supported?",
+        "triggeredBy": "We have past resumes and hiring decisions, but they're not very structured.",
+        "options": [
+          "Support PDF, DOCX, TXT up to 10MB; OCR fallback; semi-automated labeling pipeline for historical resumes",
+          "Only PDF support with structured JSON resume format export",
+          "Multi-lingual resume extraction with cloud OCR API"
+        ],
+        "selectedResponse": "Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs."
+      },
+      {
+        "id": "q-rel-01",
+        "category": "Functional Scoring",
+        "question": "How should 'profile strength' (good companies, solid projects) and freshers vs experienced candidates be weighted?",
+        "triggeredBy": "Things like good companies, solid projects, impactful work / Sometimes a strong fresher is better than someone with 5 average years.",
+        "options": [
+          "Dynamic weighted scoring: 40% Verified Project Complexity & Skills, 30% Job Relevance, 20% Impact/Achievements, 10% Years of Exp with fresher bonus",
+          "Fixed rule filter based on company tier list and minimum 3 years experience",
+          "Pure semantic embedding similarity score without separate company weighting"
+        ],
+        "selectedResponse": "Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles."
+      },
+      {
+        "id": "q-scope-01",
+        "category": "Project Scope & Timeline",
+        "question": "What is the concrete deadline and core scope for the 'MVP soon' deliverable?",
+        "triggeredBy": "We need an MVP soon.",
+        "options": [
+          "4-week MVP deliverable: Web dashboard, single & batch resume upload (PDF/DOCX), scoring engine, explainability breakdown, and CSV export",
+          "2-week prototype with basic keyword matching",
+          "8-week production release with ATS integration"
+        ],
+        "selectedResponse": "MVP delivery in 4 weeks: Web-based candidate shortlisting portal supporting PDF/DOCX ingestion, JD matching, top-N ranking with explainability cards, and fairness metrics dashboard."
+      }
+    ]
+  },
+  {
+    "id": "fintech-fraud-meeting",
+    "title": "Fintech Real-Time Fraud Prevention System",
+    "description": "Requirement meeting for an instant payment fraud detection and alert engine.",
+    "domain": "Fintech / Payments",
+    "utterances": [
+      { "speaker": "Product Manager", "text": "We need a fraud detection system for our payment gateway to block suspicious transactions.", "timestamp": "00:05", "hasAmbiguity": false },
+      { "speaker": "Architect", "text": "What type of latency constraints do we have for in-flight transaction authorization?", "timestamp": "00:14", "hasAmbiguity": false },
+      { "speaker": "Product Manager", "text": "It has to be really fast so customers don't feel any lag during checkout.", "timestamp": "00:20", "hasAmbiguity": true, "ambiguousPhrases": ["really fast", "don't feel any lag"] },
+      { "speaker": "Architect", "text": "What is our expected transaction throughput during peak sales?", "timestamp": "00:27", "hasAmbiguity": false },
+      { "speaker": "Product Manager", "text": "Huge volume, like during Black Friday we get lots of traffic.", "timestamp": "00:33", "hasAmbiguity": true, "ambiguousPhrases": ["huge volume", "lots of traffic"] },
+      { "speaker": "Compliance Lead", "text": "What about false positives? If we block genuine cards, customers will be angry.", "timestamp": "00:40", "hasAmbiguity": false },
+      { "speaker": "Product Manager", "text": "False positives should be minimal, but security is number one.", "timestamp": "00:46", "hasAmbiguity": true, "ambiguousPhrases": ["minimal", "security is number one"] }
+    ],
+    "sampleClarifications": [
+      {
+        "id": "q-fin-perf",
+        "category": "Performance",
+        "question": "What is the maximum allowable latency for fraud scoring during transaction authorization?",
+        "triggeredBy": "really fast / don't feel any lag",
+        "options": ["p99 latency < 50ms", "p95 latency < 100ms", "Asynchronous review within 1 minute"],
+        "selectedResponse": "p99 scoring latency must be <= 45ms within the payment authorization pipeline."
+      },
+      {
+        "id": "q-fin-scale",
+        "category": "Scalability",
+        "question": "What is the peak transactions per second (TPS) target for high-traffic events?",
+        "triggeredBy": "huge volume / lots of traffic",
+        "options": ["15,000 TPS peak with horizontal auto-scaling", "5,000 TPS peak", "50,000 TPS distributed global gateway"],
+        "selectedResponse": "Support sustained 12,000 TPS and peak 25,000 TPS with zero message loss."
+      },
+      {
+        "id": "q-fin-acc",
+        "category": "Accuracy",
+        "question": "What is the acceptable False Positive Rate (FPR) and target Fraud Catch Rate?",
+        "triggeredBy": "False positives should be minimal",
+        "options": ["FPR < 0.15% with Fraud Detection Rate (Recall) >= 94%", "FPR < 0.5% with Recall >= 98%", "FPR < 1.0%"],
+        "selectedResponse": "False Positive Rate strictly below 0.12% while maintaining fraud detection recall >= 95.5%."
+      }
+    ]
+  },
+  {
+    "id": "healthcare-ehr-meeting",
+    "title": "Healthcare Clinical Decision Support & EHR Integration",
+    "description": "Stakeholder discussion on AI diagnostic recommendation assistant for electronic health records.",
+    "domain": "Healthcare / MedTech",
+    "utterances": [
+      { "speaker": "Chief Medical Officer", "text": "We want an AI copilot to assist clinicians during patient diagnosis and flag drug interactions.", "timestamp": "00:06", "hasAmbiguity": false },
+      { "speaker": "Lead Developer", "text": "How will patient data be ingested and stored?", "timestamp": "00:15", "hasAmbiguity": false },
+      { "speaker": "Chief Medical Officer", "text": "It needs to follow all standard medical security rules and connect with our hospital system.", "timestamp": "00:22", "hasAmbiguity": true, "ambiguousPhrases": ["standard medical security rules", "hospital system"] },
+      { "speaker": "Lead Developer", "text": "What level of confidence should trigger a drug interaction warning to doctors?", "timestamp": "00:30", "hasAmbiguity": false },
+      { "speaker": "Chief Medical Officer", "text": "Only show high risk alerts so doctors don't get alert fatigue, but don't miss anything dangerous.", "timestamp": "00:38", "hasAmbiguity": true, "ambiguousPhrases": ["high risk alerts", "alert fatigue", "anything dangerous"] }
+    ],
+    "sampleClarifications": [
+      {
+        "id": "q-health-sec",
+        "category": "Security & Compliance",
+        "question": "Which specific healthcare interoperability and privacy standards must be implemented?",
+        "triggeredBy": "standard medical security rules / hospital system",
+        "options": ["HL7 FHIR Release 4 RESTful API + HIPAA BAA compliance + AES-256 at rest & TLS 1.3 in transit", "Basic DICOM and PDF export", "Generic webhook integration"],
+        "selectedResponse": "Full HL7 FHIR v4 integration with SMART-on-FHIR authentication; HIPAA, HITECH, and SOC2 Type II compliance with end-to-end audit logging."
+      },
+      {
+        "id": "q-health-acc",
+        "category": "Clinical Safety",
+        "question": "What classification threshold and severity grading defines high-risk drug interaction alerts?",
+        "triggeredBy": "high risk alerts / alert fatigue / anything dangerous",
+        "options": ["Contraindication Class 1 (life-threatening) mandatory interruptive modal; Class 2/3 non-interruptive banner; Sensitivity >= 99.8%", "Warn on all interactions", "Only warn if patient has existing allergies"],
+        "selectedResponse": "Class 1 (severe/fatal) interactions trigger interruptive alerts with >= 99.9% sensitivity; Class 2/3 render as asynchronous sidebar notices to eliminate alert fatigue."
+      }
+    ]
+  }
+]

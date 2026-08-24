@@ -1,0 +1,30 @@
+{
+  "name": "ai-realtime-requirement-analysis",
+  "version": "1.0.0",
+  "description": "AI-Powered Chrome Extension and Platform for Real-Time Meeting Requirement Analysis, Clarification, and Quality Evaluation",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "test": "node tests/run-all-tests.js"
+  },
+  "keywords": [
+    "chrome-extension",
+    "requirement-engineering",
+    "zoom",
+    "ai",
+    "nlp",
+    "nfr",
+    "fr",
+    "quality-evaluation"
+  ],
+  "author": "Software Engineering Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "docx": "^8.5.0",
+    "express": "^4.21.2",
+    "pdfkit": "^0.15.0"
+  }
+}

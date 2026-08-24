@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Real-Time Requirement Analysis & Evaluation Studio</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Chart.js for Interactive Quality Radar & Bar Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="nav-left">
+        <div class="app-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="nav-titles">
+          <h1 class="nav-title">Requirement AI Studio</h1>
+          <span class="nav-subtitle">Real-Time Zoom/Meet Transcript Requirement Engineering & Quality Evaluator</span>
+        </div>
+      </div>
+
+      <div class="nav-center">
+        <!-- Preset Scenario Selector -->
+        <div class="scenario-selector-wrap">
+          <label for="scenario-select">Meeting Scenario:</label>
+          <select id="scenario-select" class="scenario-select">
+            <option value="resume-analyzer-assignment">📄 Resume Analyzer (Assignment PDF Conversation)</option>
+            <option value="fintech-fraud-meeting">💳 Fintech Real-Time Fraud Prevention</option>
+            <option value="healthcare-ehr-meeting">🏥 Healthcare Clinical Decision Support</option>
+            <option value="custom">✏️ Custom / Paste Meeting Transcript</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="nav-right">
+        <div class="system-status-pill online" id="server-status-pill">
+          <span class="status-dot"></span>
+          <span id="server-status-label">Backend Connected</span>
+        </div>
+
+        <!-- Export Dropdown -->
+        <div class="export-dropdown">
+          <button class="btn-export-main" id="btn-export-dropdown-toggle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export SRS Report
+          </button>
+          <div class="export-menu" id="export-menu">
+            <button class="export-item" id="export-pdf-btn">
+              <span class="icon">📕</span> PDF Document (ISO 29148 Report)
+            </button>
+            <button class="export-item" id="export-docx-btn">
+              <span class="icon">📘</span> Word Document (.docx)
+            </button>
+            <button class="export-item" id="export-txt-btn">
+              <span class="icon">📄</span> Markdown / Text (.md)
+            </button>
+            <button class="export-item" id="export-json-btn">
+              <span class="icon">⚙️</span> Structured JSON Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Grid (3 Columns) -->
+    <div class="workspace-grid">
+      
+      <!-- COLUMN 1: Live Meeting Room & Transcript Streamer -->
+      <section class="panel panel-meeting">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <span class="panel-icon">🎙️</span>
+            <div>
+              <h2 class="panel-title">Meeting Stream</h2>
+              <span class="panel-desc" id="meeting-stream-desc">Capturing live conversation</span>
+            </div>
+          </div>
+          <div class="panel-actions">
+            <button class="btn-sm" id="btn-mic-toggle" title="Listen via Microphone (Web Speech API)">
+              <span class="mic-icon">🎤</span> Live Mic
+            </button>
+          </div>
+        </div>
+
+        <!-- Meeting Simulation Player Bar -->
+        <div class="simulation-player">
+          <div class="player-controls">
+            <button class="btn-play-pause" id="btn-play-pause" title="Play / Pause Simulation">
+              <svg id="play-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+            </button>
+            <button class="btn-player-sub" id="btn-step-next" title="Next Utterance">⏭ Next</button>
+            <button class="btn-player-sub" id="btn-instant-load" title="Load Entire Meeting Instantly">⚡ All</button>
+            <button class="btn-player-sub danger" id="btn-reset-meeting" title="Reset Meeting">↺ Reset</button>
+          </div>
+
+          <div class="audio-visualizer-bar" id="audio-visualizer">
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+            <div class="sound-wave"></div>
+          </div>
+
+          <div class="playback-speed">
+            <span>Speed:</span>
+            <select id="speed-select" class="speed-select">
+              <option value="1">1.0x</option>
+              <option value="2">2.0x</option>
+              <option value="5" selected>5.0x</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Ambiguity Meter Bar -->
+        <div class="ambiguity-alert-strip" id="ambiguity-alert-strip">
+          <div class="strip-left">
+            <span class="strip-badge">NLP AMBIGUITY DETECTOR</span>
+            <span class="strip-text" id="ambiguity-strip-text">0 Ambiguous Statements Detected</span>
+          </div>
+          <div class="strip-score" id="ambiguity-index-chip">Ambiguity: 0%</div>
+        </div>
+
+        <!-- Custom Input / Paste Modal Drawer -->
+        <div class="custom-transcript-drawer" id="custom-drawer" style="display: none;">
+          <textarea id="custom-transcript-text" placeholder="Paste dialogue here (e.g. Speaker: Statement)..."></textarea>
+          <div class="drawer-actions">
+            <button class="btn-sm btn-primary" id="btn-apply-custom">Load Custom Transcript</button>
+            <button class="btn-sm" id="btn-close-custom">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Live Transcript Scroll Area -->
+        <div class="transcript-feed-area" id="transcript-feed-area">
+          <div class="feed-placeholder" id="feed-placeholder">
+            <div class="placeholder-icon">💬</div>
+            <h3>Meeting Room Ready</h3>
+            <p>Click <strong>Play (▶)</strong> to simulate the live meeting or activate <strong>Live Mic</strong>.</p>
+          </div>
+        </div>
+
+        <!-- Manual Quick Input Bar -->
+        <div class="manual-input-bar">
+          <input type="text" id="manual-line-input" placeholder="Type a live statement (e.g., 'We need it fast with 99% uptime')..." />
+          <button class="btn-send" id="btn-send-manual-line">Send</button>
+        </div>
+      </section>
+
+      <!-- COLUMN 2: AI Clarification Q&A & Requirements Specification -->
+      <section class="panel panel-requirements">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <span class="panel-icon">⚡</span>
+            <div>
+              <h2 class="panel-title">Requirement Engineering</h2>
+              <span class="panel-desc">Real-Time Clarifications & Refined FR/NFRs</span>
+            </div>
+          </div>
+
+          <div class="view-toggle-pills">
+            <button class="pill-btn active" data-view="clarifications">
+              Clarifications (<span id="count-clarify-tab">0</span>)
+            </button>
+            <button class="pill-btn" data-view="requirements">
+              FR & NFR Board (<span id="count-req-tab">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <!-- VIEW A: Clarification Q&A Hub -->
+        <div class="view-pane active" id="view-clarifications">
+          <div class="clarification-hub-header">
+            <div class="hub-info">
+              <h3>Targeted Clarification Questions</h3>
+              <p>Triggered by vague predicates to establish quantitative acceptance criteria.</p>
+            </div>
+            <button class="btn-sm btn-accent" id="btn-clarify-all-smart">✨ Auto-Clarify with Recommended SLOs</button>
+          </div>
+
+          <div class="clarification-cards-container" id="clarification-cards-container">
+            <div class="empty-clarify-state">
+              <div class="empty-icon">💡</div>
+              <h4>No Clarifications Pending</h4>
+              <p>As speakers make vague or incomplete statements in the meeting, AI-generated clarification cards will appear here.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW B: Requirements Specification Board -->
+        <div class="view-pane" id="view-requirements">
+          <div class="req-board-header">
+            <div class="req-tabs">
+              <button class="req-subtab active" data-filter="all">All Specifications</button>
+              <button class="req-subtab" data-filter="fr">Functional (FR)</button>
+              <button class="req-subtab" data-filter="nfr">Categorized NFR</button>
+            </div>
+            <div class="req-counts-indicator" id="req-counts-indicator">0 Requirements</div>
+          </div>
+
+          <div class="requirements-cards-container" id="requirements-cards-container">
+            <div class="empty-req-state">
+              <div class="empty-icon">📋</div>
+              <h4>Requirements Board Ready</h4>
+              <p>Requirements will synthesize dynamically from meeting statements and stakeholder clarifications.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMN 3: Quality Evaluation & Comparison Audit -->
+      <section class="panel panel-evaluation">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <span class="panel-icon">📊</span>
+            <div>
+              <h2 class="panel-title">Quality Evaluation Audit</h2>
+              <span class="panel-desc">IEEE 830 / ISO 29148 Standard Metrics</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="evaluation-scroll-area">
+          <!-- Hero Quality Comparison Pill -->
+          <div class="quality-hero-card">
+            <div class="comparison-dual-scores">
+              <div class="score-card baseline">
+                <span class="score-card-label">Without Clarification</span>
+                <span class="score-card-val" id="eval-baseline-oqi">30%</span>
+                <span class="score-tier-tag poor" id="eval-baseline-tier">Poor Quality</span>
+              </div>
+
+              <div class="score-arrow-wrap">
+                <span class="arrow-symbol">➔</span>
+                <span class="delta-tag" id="eval-delta-tag">+62% Δ</span>
+              </div>
+
+              <div class="score-card refined">
+                <span class="score-card-label">With AI Clarification</span>
+                <span class="score-card-val" id="eval-refined-oqi">92%</span>
+                <span class="score-tier-tag excellent" id="eval-refined-tier">Excellent Quality</span>
+              </div>
+            </div>
+
+            <div class="quality-verdict-box" id="quality-verdict-box">
+              AI Clarification resolved 100% of ambiguous predicates, establishing verifiable SLOs and comprehensive NFR coverage.
+            </div>
+          </div>
+
+          <!-- Radar Chart Comparison -->
+          <div class="chart-box">
+            <h4 class="box-title">Multi-Dimensional Requirement Quality Radar</h4>
+            <div class="canvas-container">
+              <canvas id="qualityRadarChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Detailed Metric Breakdown Meters -->
+          <div class="metrics-audit-list">
+            <h4 class="box-title">Engineering Quality Dimension Breakdown</h4>
+
+            <!-- Metric 1: Ambiguity -->
+            <div class="audit-metric-card">
+              <div class="metric-top">
+                <span class="metric-title">Ambiguity Level (Lexical Vagueness)</span>
+                <span class="metric-delta positive" id="amb-delta">-66% (Improvement)</span>
+              </div>
+              <div class="metric-progress-wrapper">
+                <div class="progress-label-row">
+                  <span>Baseline: <strong id="val-base-amb">78%</strong></span>
+                  <span>Refined: <strong id="val-ref-amb">12%</strong></span>
+                </div>
+                <div class="dual-meter">
+                  <div class="meter-bar baseline" id="bar-base-amb" style="width: 78%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-amb" style="width: 12%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Metric 2: Verifiability / Testability -->
+            <div class="audit-metric-card">
+              <div class="metric-top">
+                <span class="metric-title">Testability & Verifiability</span>
+                <span class="metric-delta positive" id="test-delta">+67% Gain</span>
+              </div>
+              <div class="metric-progress-wrapper">
+                <div class="progress-label-row">
+                  <span>Baseline: <strong id="val-base-test">25%</strong></span>
+                  <span>Refined: <strong id="val-ref-test">92%</strong></span>
+                </div>
+                <div class="dual-meter">
+                  <div class="meter-bar baseline" id="bar-base-test" style="width: 25%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-test" style="width: 92%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Metric 3: Completeness & NFR Coverage -->
+            <div class="audit-metric-card">
+              <div class="metric-top">
+                <span class="metric-title">Completeness & NFR Dimension Coverage</span>
+                <span class="metric-delta positive" id="comp-delta">+59% Gain</span>
+              </div>
+              <div class="metric-progress-wrapper">
+                <div class="progress-label-row">
+                  <span>Baseline: <strong id="val-base-comp">35%</strong></span>
+                  <span>Refined: <strong id="val-ref-comp">94%</strong></span>
+                </div>
+                <div class="dual-meter">
+                  <div class="meter-bar baseline" id="bar-base-comp" style="width: 35%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-comp" style="width: 94%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Metric 4: Specificity & Quantifiable SLOs -->
+            <div class="audit-metric-card">
+              <div class="metric-top">
+                <span class="metric-title">Specificity & Numeric SLOs</span>
+                <span class="metric-delta positive" id="spec-delta">+60% Gain</span>
+              </div>
+              <div class="metric-progress-wrapper">
+                <div class="progress-label-row">
+                  <span>Baseline: <strong id="val-base-spec">30%</strong></span>
+                  <span>Refined: <strong id="val-ref-spec">90%</strong></span>
+                </div>
+                <div class="dual-meter">
+                  <div class="meter-bar baseline" id="bar-base-spec" style="width: 30%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-spec" style="width: 90%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side-by-Side Diff Comparison Drawer -->
+          <div class="diff-comparison-box">
+            <h4 class="box-title">Side-by-Side Transformation Diff</h4>
+            <div class="diff-table-container">
+              <table class="diff-table">
+                <thead>
+                  <tr>
+                    <th>Dimension</th>
+                    <th>Without Clarification (Raw)</th>
+                    <th>With AI Clarification (Refined)</th>
+                  </tr>
+                </thead>
+                <tbody id="diff-table-body">
+                  <tr>
+                    <td><strong>Performance NFR</strong></td>
+                    <td class="diff-bad">"It shouldn't be slow. Ideally quick."</td>
+                    <td class="diff-good">Single resume latency <= 1.50s (p95); Batch of 100 <= 30.0s</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Fairness NFR</strong></td>
+                    <td class="diff-bad">"We must avoid bias, especially related to gender or college."</td>
+                    <td class="diff-good">PII & college redaction + Disparate Impact Ratio in [0.80, 1.25]</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Accuracy NFR</strong></td>
+                    <td class="diff-bad">"Good enough so that HR trusts it."</td>
+                    <td class="diff-good">Top-10 Precision >= 85.0% and NDCG@10 >= 0.82</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

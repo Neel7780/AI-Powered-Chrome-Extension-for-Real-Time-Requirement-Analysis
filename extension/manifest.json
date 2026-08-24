@@ -1,0 +1,71 @@
+{
+  "manifest_version": 3,
+  "name": "AI Real-Time Requirement Analyzer",
+  "version": "1.0.0",
+  "description": "AI-Powered Chrome Extension for Live Zoom & Meet Transcript Requirement Analysis, Clarification, and Evaluation.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "sidePanel",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.zoom.us/*",
+    "*://meet.google.com/*",
+    "*://teams.microsoft.com/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "AI Requirement Analyzer"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.zoom.us/*",
+        "*://meet.google.com/*",
+        "*://teams.microsoft.com/*",
+        "*://localhost/*",
+        "*://127.0.0.1/*"
+      ],
+      "js": [
+        "shared/nlp-engine.js",
+        "content/zoom-observer.js",
+        "content/meet-observer.js",
+        "content/injected-hud.js"
+      ],
+      "css": [
+        "content/injected-hud.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*",
+        "shared/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
