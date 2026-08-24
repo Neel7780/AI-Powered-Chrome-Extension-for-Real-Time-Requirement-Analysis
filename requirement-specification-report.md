@@ -1,5 +1,6 @@
 # AI-Powered Requirement Analysis & Quality Report (Assignment 2)
-**Generated:** 24/8/2026, 9:42:37 pm | **Standard:** ISO/IEC/IEEE 29148
+**Generated:** 24/8/2026, 9:46:41 pm | **Evaluation:** Informed by ISO/IEC/IEEE 29148 Principles
+*Demo Simulation: Stakeholder responses are simulated to demonstrate the clarification and refinement workflow.*
 
 ## 1. Executive Summary & Quality Scorecard
 

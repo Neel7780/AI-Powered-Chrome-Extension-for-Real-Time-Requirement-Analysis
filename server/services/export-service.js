@@ -38,8 +38,8 @@ class ExportService {
         const lightGray = '#4b5563';
 
         // --- Document Header ---
-        doc.fontSize(22).fillColor(primaryColor).font('Helvetica-Bold').text(title, { align: 'left' });
-        doc.fontSize(10).fillColor(lightGray).font('Helvetica').text(`Generated on: ${new Date().toLocaleString()} | ISO/IEC/IEEE 29148 Standard`, { align: 'left' });
+        doc.fontSize(20).fillColor(primaryColor).font('Helvetica-Bold').text(title, { align: 'left' });
+        doc.fontSize(8.5).fillColor(lightGray).font('Helvetica').text(`Generated on: ${new Date().toLocaleString()} | Evaluation Informed by ISO/IEC/IEEE 29148 Principles | Demo Simulation`, { align: 'left' });
         doc.moveDown(0.8);
 
         // Header Divider
@@ -286,7 +286,8 @@ class ExportService {
     const refinedOQI = evaluation.refined?.overallQualityIndex || 92;
 
     let md = `# ${title}\n`;
-    md += `**Generated:** ${new Date().toLocaleString()} | **Standard:** ISO/IEC/IEEE 29148\n\n`;
+    md += `**Generated:** ${new Date().toLocaleString()} | **Evaluation:** Informed by ISO/IEC/IEEE 29148 Principles\n`;
+    md += `*Demo Simulation: Stakeholder responses are simulated to demonstrate the clarification and refinement workflow.*\n\n`;
     md += `## 1. Executive Summary & Quality Scorecard\n\n`;
     md += `- **Without Clarification (Baseline Quality):** ${baselineOQI} / 100 (${evaluation.baseline?.qualityTier || 'Poor'})\n`;
     md += `- **With AI Clarification (Refined Quality):** ${refinedOQI} / 100 (${evaluation.refined?.qualityTier || 'Excellent'})\n`;
