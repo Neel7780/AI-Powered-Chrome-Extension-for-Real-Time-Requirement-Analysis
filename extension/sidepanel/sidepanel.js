@@ -319,16 +319,22 @@ function renderRequirements() {
 
   list.innerHTML = itemsToRender.map(req => {
     const isNFR = req.id.startsWith('NFR');
+    const isResolved = req.status === 'RESOLVED';
     return `
-      <div class="req-card">
+      <div class="req-card ${isResolved ? 'resolved' : 'pending'}">
         <div class="req-card-top">
-          <span class="req-id">${req.id}</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="req-id">${req.id}</span>
+            <span style="font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 8px; background: ${isResolved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}; color: ${isResolved ? '#6ee7b7' : '#fcd34d'};">
+              ${isResolved ? 'RESOLVED' : 'PENDING'}
+            </span>
+          </div>
           <span class="req-priority ${req.priority === 'High' ? 'high' : ''}">${req.priority || 'High'}</span>
         </div>
         <div class="req-title">${req.title}</div>
         <div class="req-desc">${req.description}</div>
         ${isNFR ? `
-          <div class="req-metric-box">
+          <div class="req-metric-box" style="${isResolved ? '' : 'background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d;'}">
             <strong>Target SLO / Metric:</strong> ${req.targetThreshold || req.metric}
           </div>
         ` : `

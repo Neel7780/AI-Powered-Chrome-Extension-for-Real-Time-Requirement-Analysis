@@ -475,21 +475,27 @@ function renderRequirementsBoard() {
 
   container.innerHTML = items.map(req => {
     const isNFR = req.id.startsWith('NFR');
+    const isResolved = req.status === 'RESOLVED';
     return `
-      <div class="req-full-card">
+      <div class="req-full-card ${isResolved ? 'resolved' : 'pending'}">
         <div class="req-top-bar">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="req-badge-id">${req.id}</span>
             <span class="req-category-tag">${req.category || (isNFR ? 'NFR' : 'Functional')}</span>
           </div>
-          <span class="req-priority-pill must">${req.priority || 'Must Have'}</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="status-chip ${isResolved ? 'resolved' : 'pending'}">
+              ${isResolved ? '✓ RESOLVED' : '● PENDING CLARIFICATION'}
+            </span>
+            <span class="req-priority-pill must">${req.priority || 'Must Have'}</span>
+          </div>
         </div>
 
         <div class="req-title-text">${req.title}</div>
         <div class="req-desc-text">${req.description}</div>
 
         ${isNFR ? `
-          <div class="req-slo-highlight">
+          <div class="req-slo-highlight ${isResolved ? 'resolved' : 'unresolved'}">
             <strong>Target SLO / Verifiable Threshold:</strong> ${req.targetThreshold || req.metric}
           </div>
         ` : ''}

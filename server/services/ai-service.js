@@ -1,44 +1,230 @@
 /**
- * AI Service Integration Layer
- * Supports Google Gemini, OpenAI, and high-precision offline NLP Fallback Engine.
+ * Real AI Service Layer powered by Google Gemini (@google/generative-ai)
+ * with robust offline rule-based NLP Fallback Engine.
  */
 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const ambiguityDetector = require('./ambiguity-detector');
-const requirementGenerator = require('./requirement-generator');
 const qualityEvaluator = require('./quality-evaluator');
 
 class AIService {
   constructor() {
-    this.geminiApiKey = process.env.GEMINI_API_KEY || null;
-    this.openaiApiKey = process.env.OPENAI_API_KEY || null;
+    this.apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || null;
+    this.initGemini();
+  }
+
+  initGemini(customKey = null) {
+    const key = customKey || this.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (key) {
+      this.genAI = new GoogleGenerativeAI(key);
+      // Use gemini-2.5-flash (standard in recent labs) with fallback to gemini-1.5-flash
+      this.model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json'
+        }
+      });
+      this.hasActiveAI = true;
+    } else {
+      this.genAI = null;
+      this.model = null;
+      this.hasActiveAI = false;
+    }
   }
 
   /**
-   * Analyze an incoming meeting utterance in real time
-   * @param {Object} payload - { text, speaker, timestamp, customApiKey, provider }
+   * Real-time Utterance Ambiguity Analysis using Gemini LLM
    */
   async analyzeLiveUtterance(payload) {
-    const { text, speaker = 'Speaker', timestamp = '00:00' } = payload;
-    
-    // Fast NLP Ambiguity Analysis
-    const analysis = ambiguityDetector.analyzeUtterance(text, speaker, timestamp);
+    const { text, speaker = 'Speaker', timestamp = '00:00', customApiKey } = payload;
+    if (customApiKey) this.initGemini(customApiKey);
 
-    // If ambiguous, generate candidate clarification questions
+    // If Gemini is available, query Gemini LLM
+    if (this.hasActiveAI && this.model) {
+      try {
+        const prompt = `You are a Senior Requirements Engineer and NLP Analyst analyzing live meeting transcripts for Software Requirements Engineering (ISO/IEC/IEEE 29148).
+Analyze this live statement from "${speaker}": "${text}".
+
+Detect any lexical vagueness, subjective adjectives ("good enough", "fast", "solid", "trust", "strong", "impactful", "quick", "soon"), missing operational metrics, untestable criteria, or underspecified Non-Functional Requirements (NFRs like Latency, Fairness, Accuracy, Security).
+
+Return a strict JSON object with this exact structure:
+{
+  "text": "${text.replace(/"/g, '\\"')}",
+  "speaker": "${speaker}",
+  "timestamp": "${timestamp}",
+  "isAmbiguous": boolean (true if statement contains unquantified claims or fuzzy adjectives and is NOT a question),
+  "ambiguityScore": number (0 to 100),
+  "detectedFlags": [
+    {
+      "phrase": string (exact substring matched),
+      "category": "VAGUENESS" | "INCOMPLETENESS" | "UNDERSPECIFIED_NFR" | "UNVERIFIABILITY",
+      "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+      "explanation": string
+    }
+  ],
+  "suggestedClarificationTarget": string or null,
+  "candidateQuestion": {
+    "id": "q-${Date.now()}",
+    "category": string (e.g. "Performance", "Fairness & Bias", "Accuracy", "Explainability", "Data Schema", "Scope"),
+    "triggeredBy": "${text.replace(/"/g, '\\"')}",
+    "question": string (precise engineering question asking for verifiable metric or formula),
+    "suggestedOptions": [string, string, string] (3 distinct quantifiable SLO/metric choices),
+    "severity": "HIGH" | "CRITICAL"
+  } (or null if isAmbiguous is false)
+}`;
+
+        const result = await this.model.generateContent(prompt);
+        const responseText = result.response.text();
+        const parsed = JSON.parse(responseText);
+
+        if (parsed && typeof parsed.isAmbiguous === 'boolean') {
+          return {
+            ...parsed,
+            aiSource: 'gemini-2.5-flash'
+          };
+        }
+      } catch (err) {
+        console.warn('[AIService] Gemini API call fallback to rule engine:', err.message);
+      }
+    }
+
+    // Fallback to local rule engine
+    const analysis = ambiguityDetector.analyzeUtterance(text, speaker, timestamp);
     let candidateQuestion = null;
     if (analysis.isAmbiguous) {
-      candidateQuestion = this.generateRealTimeQuestion(text, analysis.detectedFlags);
+      candidateQuestion = this.generateFallbackQuestion(text, analysis.detectedFlags);
     }
 
     return {
       ...analysis,
-      candidateQuestion
+      candidateQuestion,
+      aiSource: 'rule-based-nlp-fallback'
     };
   }
 
   /**
-   * Generate intelligent clarification questions for ambiguous statements
+   * Synthesize baseline and response-driven refined requirements using Gemini LLM
    */
-  generateRealTimeQuestion(text, detectedFlags = []) {
+  async generateRequirementsWithAI(utterances = [], clarifications = [], domain = 'HR Tech') {
+    if (this.hasActiveAI && this.model && utterances.length > 0) {
+      try {
+        const answeredClarifications = clarifications.filter(c => c.selectedResponse && c.selectedResponse.trim().length > 0);
+        const unansweredClarifications = clarifications.filter(c => !c.selectedResponse || c.selectedResponse.trim().length === 0);
+
+        const prompt = `You are a Principal Software Requirements Engineer following ISO/IEC/IEEE 29148.
+Given this meeting transcript and stakeholder clarifications:
+
+TRANSCRIPT:
+${utterances.map(u => `${u.speaker}: ${u.text}`).join('\n')}
+
+STAKEHOLDER CLARIFICATIONS LOG:
+- Explicitly Answered by Stakeholder:
+${answeredClarifications.length > 0 ? answeredClarifications.map(c => `[${c.category}] Q: ${c.question} -> Stakeholder Answer: "${c.selectedResponse}" (Triggered by: "${c.triggeredBy}")`).join('\n') : 'NONE (Stakeholder has not answered any clarifications yet)'}
+
+- Unanswered Clarifications (Pending):
+${unansweredClarifications.length > 0 ? unansweredClarifications.map(c => `[${c.category}] Q: ${c.question} -> UNRESOLVED (Triggered by: "${c.triggeredBy}")`).join('\n') : 'NONE'}
+
+TASK:
+Generate two complete requirement sets:
+1. "baseline" (Without Clarification): Raw, unclarified requirements derived directly from stakeholder quotes, keeping subjective qualifiers and noting ambiguity flags.
+2. "refined" (With Clarification):
+   CRITICAL RULE:
+   - For aspects where the stakeholder EXPLICITLY answered: Formulate rigorous, unambiguous IEEE 830 / ISO 29148 requirements with concrete numerical SLOs, Given-When-Then acceptance criteria, and explicit formulas provided by the stakeholder.
+   - For aspects where the stakeholder DID NOT answer: Do NOT invent arbitrary metrics. Mark them with status: "PENDING_CLARIFICATION", targetThreshold: "Unspecified - Awaiting Stakeholder Input", and keep ambiguity flags present.
+
+Return a strict JSON object:
+{
+  "baseline": {
+    "frs": [
+      {
+        "id": "FR-BASE-01",
+        "title": string,
+        "category": "Functional",
+        "description": string,
+        "priority": "High" | "Medium",
+        "acceptanceCriteria": [string],
+        "sourceStatement": string,
+        "ambiguityFlags": [string]
+      }
+    ],
+    "nfrs": [
+      {
+        "id": "NFR-BASE-PERF-01",
+        "title": string,
+        "category": "Performance" | "Fairness & Bias" | "Accuracy & Quality" | "Security & Privacy" | "Explainability" | "Project Scope",
+        "description": string,
+        "metric": string,
+        "targetThreshold": string,
+        "priority": "High" | "Medium",
+        "sourceStatement": string,
+        "ambiguityFlags": [string]
+      }
+    ]
+  },
+  "refined": {
+    "frs": [
+      {
+        "id": "FR-01",
+        "title": string,
+        "category": "Functional",
+        "description": string,
+        "priority": "Must Have" | "Should Have" | "Could Have",
+        "targetUser": string,
+        "acceptanceCriteria": [string],
+        "sourceStatement": string,
+        "clarificationReference": string,
+        "verificationMethod": string,
+        "status": "RESOLVED" | "PENDING_CLARIFICATION"
+      }
+    ],
+    "nfrs": [
+      {
+        "id": "NFR-PERF-01",
+        "title": string,
+        "category": "Performance" | "Fairness & Bias" | "Accuracy & Quality" | "Security & Privacy" | "Explainability" | "Project Scope",
+        "description": string,
+        "metric": string,
+        "targetThreshold": string,
+        "priority": "Critical" | "High" | "Medium",
+        "sourceStatement": string,
+        "clarificationReference": string,
+        "verificationMethod": string,
+        "status": "RESOLVED" | "PENDING_CLARIFICATION"
+      }
+    ]
+  }
+}`;
+
+        const result = await this.model.generateContent(prompt);
+        const responseText = result.response.text();
+        const parsed = JSON.parse(responseText);
+
+        if (parsed.baseline && parsed.refined) {
+          return {
+            baseline: parsed.baseline,
+            refined: parsed.refined,
+            metadata: {
+              domain,
+              utteranceCount: utterances.length,
+              clarificationCount: clarifications.length,
+              answeredClarificationsCount: answeredClarifications.length,
+              aiSource: 'gemini-2.5-flash',
+              generatedAt: new Date().toISOString()
+            }
+          };
+        }
+      } catch (err) {
+        console.warn('[AIService] Gemini requirements generation fallback:', err.message);
+      }
+    }
+
+    // Fallback to response-driven requirement generator
+    const requirementGenerator = require('./requirement-generator');
+    return requirementGenerator.generateRequirements(utterances, clarifications, domain);
+  }
+
+  generateFallbackQuestion(text, detectedFlags = []) {
     const textLower = text.toLowerCase();
     
     if (textLower.includes('slow') || textLower.includes('quick') || textLower.includes('fast') || textLower.includes('real-time')) {
@@ -93,7 +279,7 @@ class AIService {
         triggeredBy: text,
         question: 'What exact formula or weightings should balance skills, project complexity, and years of experience?',
         suggestedOptions: [
-          '45% Tech stack / Skills match, 35% Project impact / Open-source, 20% Relevant experience',
+          '45% Tech stack match, 35% Project impact, 20% Relevant experience',
           '50% Skills match, 50% Verified project complexity with fresher bonus',
           'Semantic embedding cosine similarity with 3-tier company filter'
         ],
@@ -106,7 +292,7 @@ class AIService {
         id: `q-${Date.now()}-exp`,
         category: 'Explainability',
         triggeredBy: text,
-        question: 'What explainability format should be rendered for HR users (e.g., feature attribution breakdown, skill match radar)?',
+        question: 'What explainability format should be rendered for HR users (e.g., feature attribution breakdown)?',
         suggestedOptions: [
           'Structured scorecard: matched skills %, project rating, and 3 key justification bullets',
           'Interactive SHAP feature importance chart with highlighted JD keywords',
@@ -116,37 +302,6 @@ class AIService {
       };
     }
 
-    if (textLower.includes('structured') || textLower.includes('data') || textLower.includes('past resumes')) {
-      return {
-        id: `q-${Date.now()}-data`,
-        category: 'Data & Formats',
-        triggeredBy: text,
-        question: 'What file formats (PDF, DOCX, TXT), size limits, and ingestion schemas must the system support?',
-        suggestedOptions: [
-          'PDF & DOCX up to 10MB; standard JSON output schema (skills, experience, projects)',
-          'All document formats with OCR pipeline for scanned resumes',
-          'JSON and LinkedIn profile export support'
-        ],
-        severity: 'HIGH'
-      };
-    }
-
-    if (textLower.includes('mvp') || textLower.includes('soon') || textLower.includes('timeline')) {
-      return {
-        id: `q-${Date.now()}-scope`,
-        category: 'Scope & Timeline',
-        triggeredBy: text,
-        question: 'What is the target delivery deadline and core feature set for the MVP release?',
-        suggestedOptions: [
-          '4-week MVP: Web portal, PDF/DOCX ingestion, JD matching, top-10 ranking, and explainability card',
-          '2-week prototype with basic keyword search',
-          '6-week MVP with full ATS integration'
-        ],
-        severity: 'MEDIUM'
-      };
-    }
-
-    // Generic fallback question
     const primaryCategory = detectedFlags[0] ? detectedFlags[0].category : 'General';
     return {
       id: `q-${Date.now()}-gen`,
@@ -159,37 +314,6 @@ class AIService {
         'Establish automated pass/fail acceptance rule'
       ],
       severity: 'MEDIUM'
-    };
-  }
-
-  /**
-   * Process entire meeting transcript and generate full requirements + evaluation
-   */
-  async processFullMeeting(utterances = [], clarifications = [], domain = 'HR Tech') {
-    // 1. Analyze Ambiguity across transcript
-    const transcriptAmbiguity = ambiguityDetector.analyzeTranscript(utterances);
-
-    // 2. Generate Baseline and Refined Requirements
-    const { baseline, refined } = requirementGenerator.generateRequirements(utterances, clarifications, domain);
-
-    // 3. Evaluate Quality of Baseline vs Refined
-    const baselineQuality = qualityEvaluator.evaluateRequirementSet(baseline, false);
-    const refinedQuality = qualityEvaluator.evaluateRequirementSet(refined, true);
-
-    // 4. Compute Comparison
-    const comparison = qualityEvaluator.compareQuality(baselineQuality, refinedQuality);
-
-    return {
-      transcriptAmbiguity,
-      requirements: {
-        baseline,
-        refined
-      },
-      qualityEvaluation: {
-        baseline: baselineQuality,
-        refined: refinedQuality,
-        comparison
-      }
     };
   }
 }

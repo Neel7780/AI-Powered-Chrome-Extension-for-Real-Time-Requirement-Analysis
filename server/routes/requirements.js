@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const requirementGenerator = require('../services/requirement-generator');
+const aiService = require('../services/ai-service');
 
 // POST /api/requirements/generate
 router.post('/generate', async (req, res) => {
   try {
     const { utterances = [], clarifications = [], domain = 'HR Tech' } = req.body;
 
-    const result = requirementGenerator.generateRequirements(utterances, clarifications, domain);
+    const result = await aiService.generateRequirementsWithAI(utterances, clarifications, domain);
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

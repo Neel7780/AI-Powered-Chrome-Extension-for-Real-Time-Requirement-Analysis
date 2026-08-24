@@ -10,8 +10,8 @@ router.post('/compare', (req, res) => {
       return res.status(400).json({ error: 'Both baseline and refined requirements sets are required' });
     }
 
-    const baselineEval = qualityEvaluator.evaluateRequirementSet(baseline, false);
-    const refinedEval = qualityEvaluator.evaluateRequirementSet(refined, true);
+    const baselineEval = qualityEvaluator.evaluateRequirementSet(baseline);
+    const refinedEval = qualityEvaluator.evaluateRequirementSet(refined);
     const comparison = qualityEvaluator.compareQuality(baselineEval, refinedEval);
 
     res.json({
@@ -30,8 +30,8 @@ router.post('/compare', (req, res) => {
 // POST /api/evaluate/single
 router.post('/single', (req, res) => {
   try {
-    const { requirements, isClarified = false } = req.body;
-    const result = qualityEvaluator.evaluateRequirementSet(requirements, isClarified);
+    const { requirements } = req.body;
+    const result = qualityEvaluator.evaluateRequirementSet(requirements);
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

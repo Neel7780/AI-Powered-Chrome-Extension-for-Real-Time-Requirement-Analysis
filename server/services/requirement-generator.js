@@ -1,9 +1,9 @@
 /**
- * Requirement Generator Service
+ * Requirement Generator Service (Response-Driven Architecture)
  * Synthesizes Functional Requirements (FR) and Categorized Non-Functional Requirements (NFR)
  * under two paradigms:
  * 1. Without Clarification (Baseline / Raw Stakeholder Statements)
- * 2. With Clarification (Refined / Quantified / IEEE 830 & ISO 29148 Standard)
+ * 2. With Clarification (Response-Driven: only refines requirements where stakeholder answered)
  */
 
 class RequirementGenerator {
@@ -18,13 +18,17 @@ class RequirementGenerator {
     const baseline = this.generateBaselineRequirements(utterances, domain);
     const refined = this.generateRefinedRequirements(utterances, clarifications, domain);
 
+    const answeredCount = clarifications.filter(c => c.selectedResponse && c.selectedResponse.trim().length > 0).length;
+
     return {
       baseline,
       refined,
       metadata: {
         domain,
         utteranceCount: utterances.length,
-        clarificationCount: clarifications.length,
+        totalClarificationsCount: clarifications.length,
+        answeredClarificationsCount: answeredCount,
+        clarificationProgressPercentage: clarifications.length > 0 ? Math.round((answeredCount / clarifications.length) * 100) : 0,
         generatedAt: new Date().toISOString()
       }
     };
@@ -35,7 +39,6 @@ class RequirementGenerator {
    * Directly derived from raw conversation without resolved ambiguities
    */
   generateBaselineRequirements(utterances = [], domain = 'HR Tech') {
-    // Determine if it's the Resume Analyzer conversation or generic
     const fullText = utterances.map(u => u.text).join(' ');
     const isResumeAnalyzer = /resume|candidate|shortlist|fresher/i.test(fullText);
 
@@ -48,6 +51,7 @@ class RequirementGenerator {
             category: "Functional",
             description: "The system shall automatically shortlist candidates for software engineering roles based on resume analysis.",
             priority: "High",
+            status: "RAW_UNCLARIFIED",
             acceptanceCriteria: [
               "System reads candidate resumes",
               "System outputs a shortlist of candidates"
@@ -61,6 +65,7 @@ class RequirementGenerator {
             category: "Functional",
             description: "The system shall rank candidates based on relevance to the job description, skills, experience, and overall profile strength (good companies, solid projects, impactful work).",
             priority: "High",
+            status: "RAW_UNCLARIFIED",
             acceptanceCriteria: [
               "Candidates are ranked according to profile strength and experience",
               "Strong freshers should sometimes rank better than someone with 5 average years"
@@ -74,6 +79,7 @@ class RequirementGenerator {
             category: "Functional",
             description: "The system should provide explainability on why a candidate was ranked higher.",
             priority: "Medium",
+            status: "RAW_UNCLARIFIED",
             acceptanceCriteria: [
               "Show reasons for candidate ranking"
             ],
@@ -86,6 +92,7 @@ class RequirementGenerator {
             category: "Functional",
             description: "The system should utilize past resumes and hiring decisions, even if they are not very structured.",
             priority: "Medium",
+            status: "RAW_UNCLARIFIED",
             acceptanceCriteria: [
               "Ingest past unstructured hiring files"
             ],
@@ -102,6 +109,7 @@ class RequirementGenerator {
             metric: "Subjective response time",
             targetThreshold: "Not slow / Ideally quick",
             priority: "High",
+            status: "RAW_UNCLARIFIED",
             sourceStatement: "It shouldn't be slow. / Ideally quick.",
             ambiguityFlags: ["No latency number in ms/seconds", "No batch concurrency limit"]
           },
@@ -113,6 +121,7 @@ class RequirementGenerator {
             metric: "Subjective fairness",
             targetThreshold: "Avoid bias",
             priority: "High",
+            status: "RAW_UNCLARIFIED",
             sourceStatement: "Yes, we must avoid bias, especially related to gender or college background.",
             ambiguityFlags: ["No quantitative fairness metric (e.g. DIR)", "No demographic audit protocol"]
           },
@@ -124,6 +133,7 @@ class RequirementGenerator {
             metric: "HR trust",
             targetThreshold: "Good enough",
             priority: "High",
+            status: "RAW_UNCLARIFIED",
             sourceStatement: "It should be good enough so that HR trusts it.",
             ambiguityFlags: ["Untestable criteria: 'HR trust' and 'good enough'"]
           },
@@ -135,6 +145,7 @@ class RequirementGenerator {
             metric: "Release date",
             targetThreshold: "Soon",
             priority: "Medium",
+            status: "RAW_UNCLARIFIED",
             sourceStatement: "We need an MVP soon.",
             ambiguityFlags: ["No release date, sprint milestone, or MVP feature scope"]
           }
@@ -142,170 +153,299 @@ class RequirementGenerator {
       };
     }
 
-    // Generic transcript baseline generator
     return this.generateGenericBaseline(utterances, domain);
   }
 
   /**
-   * 2. Refined Requirements (With Clarification)
-   * Formal, verifiable, quantified IEEE 830 / ISO 29148 standard specifications
+   * 2. Refined Requirements (Response-Driven)
+   * Refines requirements based STRICTLY on stakeholder responses.
+   * If a stakeholder has not answered a question, it remains PENDING_CLARIFICATION.
    */
   generateRefinedRequirements(utterances = [], clarifications = [], domain = 'HR Tech') {
     const fullText = utterances.map(u => u.text).join(' ');
     const isResumeAnalyzer = /resume|candidate|shortlist|fresher/i.test(fullText);
 
     if (isResumeAnalyzer) {
-      // Find answers from clarifications or default to high-precision defaults
-      const getClarification = (idPattern) => {
-        const found = clarifications.find(c => c.id.includes(idPattern) || c.category.toLowerCase().includes(idPattern));
-        return found ? found.selectedResponse : null;
+      // Find exact stakeholder response for each category
+      const findAnswer = (pattern) => {
+        const found = clarifications.find(c => 
+          (c.id && c.id.toLowerCase().includes(pattern.toLowerCase())) || 
+          (c.category && c.category.toLowerCase().includes(pattern.toLowerCase())) ||
+          (c.triggeredBy && c.triggeredBy.toLowerCase().includes(pattern.toLowerCase()))
+        );
+        return (found && found.selectedResponse && found.selectedResponse.trim().length > 0) 
+          ? { answered: true, text: found.selectedResponse.trim(), clarificationId: found.id } 
+          : { answered: false, text: null, clarificationId: found?.id || null };
       };
 
-      const perfResp = getClarification('perf') || 'Single resume parsing latency < 1.5s (p95); batch upload of 100 resumes < 30s.';
-      const fairResp = getClarification('fair') || 'Mask PII and college names before scoring; Disparate Impact Ratio (DIR) between 0.80 and 1.25 across gender and college tiers.';
-      const accResp = getClarification('acc') || 'Top-10 shortlisting Precision >= 85% and NDCG@10 >= 0.82 against senior human recruiter benchmark.';
-      const expResp = getClarification('exp') || 'Structured candidate scorecard: matched skill %, project impact rating, and 3 key justification bullet points.';
-      const dataResp = getClarification('data') || 'Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema.';
-      const weightResp = getClarification('rel') || 'Scoring model: 45% Tech Stack/Skills match, 35% Project Scope & Open Source Impact, 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles.';
-      const scopeResp = getClarification('scope') || '4-week MVP release: Web candidate shortlisting portal with PDF/DOCX ingestion, JD matching, top-N ranking, explainability cards, and fairness metrics.';
+      const perf = findAnswer('perf');
+      const fair = findAnswer('fair');
+      const acc = findAnswer('acc');
+      const exp = findAnswer('exp');
+      const data = findAnswer('data');
+      const rel = findAnswer('rel');
+      const scope = findAnswer('scope');
 
-      return {
-        frs: [
-          {
-            id: "FR-01",
-            title: "Multi-Format Resume Ingestion & Parsing",
-            category: "Functional",
-            description: "The system shall ingest resumes in PDF and DOCX formats (up to 10MB per file) and parse text into a structured JSON schema comprising candidate skills, work history, education, and project portfolio.",
-            priority: "Must Have",
-            targetUser: "HR Recruiter / Hiring Manager",
-            acceptanceCriteria: [
-              "Given a valid PDF or DOCX resume under 10MB, When uploaded, Then the system extracts text and generates valid structured JSON within 1.5 seconds.",
-              "Given a corrupted or unsupported file type, When uploaded, Then the system returns an informative HTTP 422 error with specific validation details."
-            ],
-            sourceStatement: "We need to build an AI-based resume analyzer... We have past resumes, but they're not very structured.",
-            clarificationReference: "Clarification #Q-DATA-01 (" + dataResp + ")",
-            verificationMethod: "Automated Integration Test & JSON Schema Validation"
-          },
-          {
-            id: "FR-02",
-            title: "Deterministic Multi-Factor Candidate Scoring Engine",
-            category: "Functional",
-            description: "The system shall calculate a composite candidate relevance score (0 - 100) based on weighted parameters: 45% verified skills/tech-stack match, 35% project complexity & demonstrable impact, and 20% relevant domain experience.",
-            priority: "Must Have",
-            targetUser: "System Algorithm / Recruiter",
-            acceptanceCriteria: [
-              "Given a job description and candidate profile, When scored, Then the final score equals (0.45 * SkillMatch) + (0.35 * ProjectScore) + (0.20 * ExperienceScore).",
-              "Given an exceptional fresher with high project complexity (score >= 90), When ranked against a candidate with 5 years of generic experience (project score <= 50), Then the fresher shall be ranked higher if their composite score is greater."
-            ],
-            sourceStatement: "It should rank them based on relevance... Sometimes a strong fresher is better than someone with 5 average years.",
-            clarificationReference: "Clarification #Q-REL-01 (" + weightResp + ")",
-            verificationMethod: "Unit Test & Ranking Algorithm Regression Suite"
-          },
-          {
-            id: "FR-03",
-            title: "Structured Explainability & Match Scorecard",
-            category: "Functional",
-            description: "The system shall display a dedicated candidate match scorecard providing transparent feature attribution: exact matched required skills %, matched preferred skills %, quantified project score, and top 3 bullet justifications for the assigned rank.",
-            priority: "Must Have",
-            targetUser: "HR Recruiter",
-            acceptanceCriteria: [
-              "Given any ranked candidate, When clicked by an HR user, Then the system renders a breakdown modal with skills overlap percentage, project badge evaluations, and 3 bullet justifications.",
-              "The explainability attributes must be generated in <= 200ms upon card selection."
-            ],
-            sourceStatement: "Do we need explainability? For example, why a candidate was ranked higher? / Yes, that would be useful.",
-            clarificationReference: "Clarification #Q-EXP-01 (" + expResp + ")",
-            verificationMethod: "UI End-to-End Test & Human Interpretability Review"
-          },
-          {
-            id: "FR-04",
-            title: "Batch Resume Screening & Ranked Export",
-            category: "Functional",
-            description: "The system shall support batch uploads of up to 100 resumes simultaneously, providing a real-time progress indicator, automated sorting by composite score, and export capabilities to CSV and JSON formats.",
-            priority: "Should Have",
-            targetUser: "HR Operations Lead",
-            acceptanceCriteria: [
-              "Given a zip file or multi-file selection containing up to 100 resumes, When processed, Then the system completes ranking within 30 seconds and allows 1-click export."
-            ],
-            sourceStatement: "Should the system process resumes in real-time or batch mode?",
-            clarificationReference: "Clarification #Q-PERF-01 & #Q-SCOPE-01",
-            verificationMethod: "End-to-End Load Testing & Export Integrity Check"
-          }
-        ],
-        nfrs: [
-          {
-            id: "NFR-PERF-01",
-            title: "Parsing & Ranking Latency SLO",
-            category: "Performance",
-            description: "The system shall parse and rank a single resume in under 1.50 seconds (95th percentile) and complete batch screening of 100 resumes in under 30.0 seconds.",
-            metric: "Response Latency (p95 / p99)",
-            targetThreshold: "Single resume <= 1.5s (p95); Batch of 100 <= 30s",
-            priority: "Critical",
-            sourceStatement: "It shouldn't be slow. / Ideally quick.",
-            clarificationReference: "Clarification #Q-PERF-01 (" + perfResp + ")",
-            verificationMethod: "Automated Locust / k6 Performance Benchmark"
-          },
-          {
-            id: "NFR-FAIR-01",
-            title: "Algorithmic Fairness & Bias Mitigation",
-            category: "Fairness & Bias",
-            description: "The system shall mask all PII (name, gender, photo, age, address) and educational institution names prior to embedding generation, and enforce a Disparate Impact Ratio (DIR) between 0.80 and 1.25 across all demographic subgroups.",
-            metric: "Disparate Impact Ratio (DIR) & Demographic Parity",
-            targetThreshold: "0.80 <= DIR <= 1.25 across gender and institutional tiers",
-            priority: "Critical",
-            sourceStatement: "Yes, we must avoid bias, especially related to gender or college background.",
-            clarificationReference: "Clarification #Q-FAIR-01 (" + fairResp + ")",
-            verificationMethod: "AIF360 / Fairlearn Automated Compliance Audit Suite"
-          },
-          {
-            id: "NFR-ACC-01",
-            title: "Shortlisting Precision & Ranking Quality",
-            category: "Accuracy & Quality",
-            description: "The candidate shortlisting model shall achieve a Top-10 Precision >= 85.0% and Normalized Discounted Cumulative Gain (NDCG@10) >= 0.82 when benchmarked against a double-blind senior recruiter consensus dataset.",
-            metric: "Top-10 Precision & NDCG@10",
-            targetThreshold: "Precision@10 >= 85.0%, NDCG@10 >= 0.82",
-            priority: "Critical",
-            sourceStatement: "It should be good enough so that HR trusts it.",
-            clarificationReference: "Clarification #Q-ACC-01 (" + accResp + ")",
-            verificationMethod: "Automated Model Evaluation Pipeline on Holdout Test Set"
-          },
-          {
-            id: "NFR-SEC-01",
-            title: "Data Privacy, PII Protection & Storage Security",
-            category: "Security & Privacy",
-            description: "All candidate resumes and extracted personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with strict role-based access control (RBAC) compliant with GDPR and CCPA.",
-            metric: "Encryption Standard & Access Audit",
-            targetThreshold: "AES-256 at rest, TLS 1.3 in transit, 100% audit logging",
-            priority: "Critical",
-            sourceStatement: "We have past resumes and hiring decisions...",
-            clarificationReference: "Clarification #Q-DATA-01 & Security Baseline",
-            verificationMethod: "Automated SAST / DAST Security Scan & Penetration Test"
-          },
-          {
-            id: "NFR-EXP-01",
-            title: "Model Explainability Response & Fidelity",
-            category: "Explainability",
-            description: "Explainability attribution weights must achieve 100% fidelity with the underlying scoring formula and render on client side within 200ms of user selection.",
-            metric: "Explanation Latency & Fidelity",
-            targetThreshold: "Fidelity = 100%, Render Latency <= 200ms",
-            priority: "High",
-            sourceStatement: "Do we need explainability? / Yes, that would be useful.",
-            clarificationReference: "Clarification #Q-EXP-01 (" + expResp + ")",
-            verificationMethod: "Automated Component Test & Attribution Validation"
-          },
-          {
-            id: "NFR-SCOPE-01",
-            title: "MVP Milestone Delivery & Scope Boundaries",
-            category: "Project Scope",
-            description: "The core MVP shall be delivered within 4 calendar weeks, encapsulating PDF/DOCX ingestion, JD matching, top-10 ranking, explainability scorecard, and export modules.",
-            metric: "Delivery Timeline & Scope Checklist",
-            targetThreshold: "Sprint Duration <= 4 Weeks; 100% MVP Acceptance Criteria Pass",
-            priority: "High",
-            sourceStatement: "We need an MVP soon.",
-            clarificationReference: "Clarification #Q-SCOPE-01 (" + scopeResp + ")",
-            verificationMethod: "Sprint Review & User Acceptance Testing (UAT)"
-          }
-        ]
-      };
+      const frs = [
+        // FR-01: Data Ingestion & Parsing
+        data.answered ? {
+          id: "FR-01",
+          title: "Multi-Format Resume Ingestion & Parsing",
+          category: "Functional",
+          description: `The system shall ingest resumes in PDF and DOCX formats (up to 10MB per file) and parse text into structured JSON according to stakeholder specification: ${data.text}.`,
+          priority: "Must Have",
+          targetUser: "HR Recruiter / Hiring Manager",
+          status: "RESOLVED",
+          acceptanceCriteria: [
+            "Given a valid PDF or DOCX resume under 10MB, When uploaded, Then the system extracts text and generates valid structured JSON.",
+            "Given a corrupted or unsupported file type, When uploaded, Then the system returns an informative HTTP 422 error."
+          ],
+          sourceStatement: "We need to build an AI-based resume analyzer... We have past resumes, but they're not very structured.",
+          clarificationReference: `Clarification #${data.clarificationId}: "${data.text}"`,
+          verificationMethod: "Automated Integration Test & JSON Schema Validation"
+        } : {
+          id: "FR-01",
+          title: "Resume Ingestion (Pending Data Schema Clarification)",
+          category: "Functional",
+          description: "The system shall ingest past resumes and hiring data (data format and parsing pipeline pending stakeholder clarification).",
+          priority: "High",
+          status: "PENDING_CLARIFICATION",
+          acceptanceCriteria: ["System accepts resume files"],
+          sourceStatement: "We have past resumes and hiring decisions, but they're not very structured.",
+          ambiguityFlags: ["Data formats (PDF/DOCX/OCR) and JSON parsing schema unresolved"]
+        },
+
+        // FR-02: Deterministic Candidate Scoring Engine
+        rel.answered ? {
+          id: "FR-02",
+          title: "Deterministic Multi-Factor Candidate Scoring Engine",
+          category: "Functional",
+          description: `The system shall calculate composite candidate relevance scores using stakeholder-defined weighting: ${rel.text}.`,
+          priority: "Must Have",
+          targetUser: "System Algorithm / Recruiter",
+          status: "RESOLVED",
+          acceptanceCriteria: [
+            "Given a job description and candidate profile, When scored, Then the final score strictly follows the stakeholder weighting formula.",
+            "Given an exceptional fresher with high project complexity, When ranked against generic experience, Then the fresher outranks when composite score is higher."
+          ],
+          sourceStatement: "It should rank them based on relevance... Sometimes a strong fresher is better than someone with 5 average years.",
+          clarificationReference: `Clarification #${rel.clarificationId}: "${rel.text}"`,
+          verificationMethod: "Unit Test & Ranking Algorithm Regression Suite"
+        } : {
+          id: "FR-02",
+          title: "Candidate Scoring (Pending Weighting Formula)",
+          category: "Functional",
+          description: "The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).",
+          priority: "High",
+          status: "PENDING_CLARIFICATION",
+          acceptanceCriteria: ["Candidates are ranked"],
+          sourceStatement: "Mainly skills and experience. And overall profile strength.",
+          ambiguityFlags: ["'Good companies', 'solid projects', and fresher weighting formula unresolved"]
+        },
+
+        // FR-03: Structured Explainability & Match Scorecard
+        exp.answered ? {
+          id: "FR-03",
+          title: "Structured Explainability & Match Scorecard",
+          category: "Functional",
+          description: `The system shall display a candidate match scorecard based on stakeholder specification: ${exp.text}.`,
+          priority: "Must Have",
+          targetUser: "HR Recruiter",
+          status: "RESOLVED",
+          acceptanceCriteria: [
+            "Given any ranked candidate, When clicked by an HR user, Then the system renders a breakdown modal with skills overlap percentage, project badge evaluations, and textual justifications."
+          ],
+          sourceStatement: "Do we need explainability? For example, why a candidate was ranked higher? / Yes, that would be useful.",
+          clarificationReference: `Clarification #${exp.clarificationId}: "${exp.text}"`,
+          verificationMethod: "UI End-to-End Test & Interpretability Review"
+        } : {
+          id: "FR-03",
+          title: "Ranking Explainability (Pending Presentation Format)",
+          category: "Functional",
+          description: "The system should explain candidate ranking (presentation schema pending clarification).",
+          priority: "Medium",
+          status: "PENDING_CLARIFICATION",
+          acceptanceCriteria: ["Show ranking reasons"],
+          sourceStatement: "Do we need explainability? ... Yes, that would be useful.",
+          ambiguityFlags: ["Explainability granularity and UI presentation format unresolved"]
+        },
+
+        // FR-04: Batch Screening
+        perf.answered ? {
+          id: "FR-04",
+          title: "Batch Resume Screening & Ranked Export",
+          category: "Functional",
+          description: "The system shall support batch uploads of up to 100 resumes simultaneously, providing real-time progress indicators, automated ranking, and CSV/JSON export capabilities.",
+          priority: "Should Have",
+          targetUser: "HR Operations Lead",
+          status: "RESOLVED",
+          acceptanceCriteria: [
+            "Given a batch upload of up to 100 resumes, When processed, Then the system completes ranking within the specified latency SLO and exports results."
+          ],
+          sourceStatement: "Should the system process resumes in real-time or batch mode?",
+          clarificationReference: `Clarification #${perf.clarificationId}`,
+          verificationMethod: "End-to-End Load Testing & Export Integrity Check"
+        } : {
+          id: "FR-04",
+          title: "Batch Resume Screening",
+          category: "Functional",
+          description: "The system shall support processing multiple resumes.",
+          priority: "Medium",
+          status: "PENDING_CLARIFICATION",
+          acceptanceCriteria: ["Process multiple resumes"],
+          sourceStatement: "Should the system process resumes in real-time or batch mode?",
+          ambiguityFlags: ["Batch concurrency limit and latency target unresolved"]
+        }
+      ];
+
+      const nfrs = [
+        // NFR-PERF-01: Performance
+        perf.answered ? {
+          id: "NFR-PERF-01",
+          title: "Parsing & Ranking Latency SLO",
+          category: "Performance",
+          description: `The system shall meet stakeholder-defined latency SLOs: ${perf.text}.`,
+          metric: "Response Latency (p95 / p99)",
+          targetThreshold: perf.text,
+          priority: "Critical",
+          status: "RESOLVED",
+          sourceStatement: "It shouldn't be slow. / Ideally quick.",
+          clarificationReference: `Clarification #${perf.clarificationId}: "${perf.text}"`,
+          verificationMethod: "Automated Performance Benchmark"
+        } : {
+          id: "NFR-PERF-01",
+          title: "Processing Latency (Unresolved)",
+          category: "Performance",
+          description: "The system shouldn't be slow and should be ideally quick.",
+          metric: "Unquantified",
+          targetThreshold: "Unspecified - Awaiting Stakeholder Clarification",
+          priority: "High",
+          status: "PENDING_CLARIFICATION",
+          sourceStatement: "It shouldn't be slow. / Ideally quick.",
+          ambiguityFlags: ["Missing numeric latency SLO (e.g. p95 < 1.5s)"]
+        },
+
+        // NFR-FAIR-01: Fairness & Bias
+        fair.answered ? {
+          id: "NFR-FAIR-01",
+          title: "Algorithmic Fairness & Bias Mitigation",
+          category: "Fairness & Bias",
+          description: `The system shall enforce bias mitigation in accordance with stakeholder parameters: ${fair.text}.`,
+          metric: "Disparate Impact Ratio (DIR) & Demographic Parity",
+          targetThreshold: fair.text,
+          priority: "Critical",
+          status: "RESOLVED",
+          sourceStatement: "Yes, we must avoid bias, especially related to gender or college background.",
+          clarificationReference: `Clarification #${fair.clarificationId}: "${fair.text}"`,
+          verificationMethod: "Automated Fairness Compliance Audit Suite"
+        } : {
+          id: "NFR-FAIR-01",
+          title: "Bias Mitigation (Unresolved)",
+          category: "Fairness & Bias",
+          description: "The system must avoid bias, especially related to gender or college background.",
+          metric: "Unquantified",
+          targetThreshold: "Unspecified - Awaiting Stakeholder Clarification",
+          priority: "High",
+          status: "PENDING_CLARIFICATION",
+          sourceStatement: "Yes, we must avoid bias, especially related to gender or college background.",
+          ambiguityFlags: ["Missing quantitative fairness metric (e.g. DIR in [0.80, 1.25]) and PII masking protocol"]
+        },
+
+        // NFR-ACC-01: Accuracy
+        acc.answered ? {
+          id: "NFR-ACC-01",
+          title: "Shortlisting Precision & Ranking Quality",
+          category: "Accuracy & Quality",
+          description: `The candidate shortlisting model shall achieve stakeholder-defined accuracy targets: ${acc.text}.`,
+          metric: "Top-10 Precision & NDCG@10",
+          targetThreshold: acc.text,
+          priority: "Critical",
+          status: "RESOLVED",
+          sourceStatement: "It should be good enough so that HR trusts it.",
+          clarificationReference: `Clarification #${acc.clarificationId}: "${acc.text}"`,
+          verificationMethod: "Automated Model Evaluation Pipeline on Test Set"
+        } : {
+          id: "NFR-ACC-01",
+          title: "Model Accuracy (Unresolved)",
+          category: "Accuracy & Quality",
+          description: "The accuracy of the system should be good enough so that HR trusts it.",
+          metric: "Unquantified",
+          targetThreshold: "Unspecified - Awaiting Stakeholder Clarification",
+          priority: "High",
+          status: "PENDING_CLARIFICATION",
+          sourceStatement: "It should be good enough so that HR trusts it.",
+          ambiguityFlags: ["Untestable criteria: 'HR trust' and 'good enough'"]
+        },
+
+        // NFR-EXP-01: Explainability
+        exp.answered ? {
+          id: "NFR-EXP-01",
+          title: "Model Explainability Response & Fidelity",
+          category: "Explainability",
+          description: `Explainability attribution weights must achieve 100% fidelity with the scoring formula and render on client side within 200ms based on stakeholder requirement: ${exp.text}.`,
+          metric: "Explanation Latency & Fidelity",
+          targetThreshold: "Fidelity = 100%, Render Latency <= 200ms",
+          priority: "High",
+          status: "RESOLVED",
+          sourceStatement: "Do we need explainability? / Yes, that would be useful.",
+          clarificationReference: `Clarification #${exp.clarificationId}: "${exp.text}"`,
+          verificationMethod: "Automated Attribution Validation Test"
+        } : {
+          id: "NFR-EXP-01",
+          title: "Model Explainability (Unresolved)",
+          category: "Explainability",
+          description: "Explainability format and latency SLO pending stakeholder input.",
+          metric: "Unquantified",
+          targetThreshold: "Unspecified - Awaiting Stakeholder Clarification",
+          priority: "Medium",
+          status: "PENDING_CLARIFICATION",
+          sourceStatement: "Do we need explainability? / Yes, that would be useful.",
+          ambiguityFlags: ["Explainability fidelity benchmark and latency SLO unresolved"]
+        },
+
+        // NFR-SEC-01: Security
+        {
+          id: "NFR-SEC-01",
+          title: "Data Privacy, PII Protection & Storage Security",
+          category: "Security & Privacy",
+          description: "All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with role-based access control (RBAC) compliant with GDPR and CCPA.",
+          metric: "Encryption Standard & Access Audit",
+          targetThreshold: "AES-256 at rest, TLS 1.3 in transit, 100% audit logging",
+          priority: "Critical",
+          status: "RESOLVED",
+          sourceStatement: "We have past resumes and hiring decisions...",
+          clarificationReference: "Security Baseline Specification",
+          verificationMethod: "Automated SAST/DAST Security Scan"
+        },
+
+        // NFR-SCOPE-01: Scope & Timeline
+        scope.answered ? {
+          id: "NFR-SCOPE-01",
+          title: "MVP Milestone Delivery & Scope Boundaries",
+          category: "Project Scope",
+          description: `The core MVP deliverable shall be completed within stakeholder-specified timeframe: ${scope.text}.`,
+          metric: "Delivery Timeline & Scope Checklist",
+          targetThreshold: scope.text,
+          priority: "High",
+          status: "RESOLVED",
+          sourceStatement: "We need an MVP soon.",
+          clarificationReference: `Clarification #${scope.clarificationId}: "${scope.text}"`,
+          verificationMethod: "Sprint Review & User Acceptance Testing"
+        } : {
+          id: "NFR-SCOPE-01",
+          title: "Delivery Timeline (Unresolved)",
+          category: "Project Scope",
+          description: "We need an MVP soon.",
+          metric: "Unquantified",
+          targetThreshold: "Unspecified - Awaiting Stakeholder Clarification",
+          priority: "Medium",
+          status: "PENDING_CLARIFICATION",
+          sourceStatement: "We need an MVP soon.",
+          ambiguityFlags: ["Missing concrete MVP deadline and scope boundaries"]
+        }
+      ];
+
+      return { frs, nfrs };
     }
 
     return this.generateGenericRefined(utterances, clarifications, domain);
@@ -328,6 +468,7 @@ class RequirementGenerator {
             metric: "Unspecified",
             targetThreshold: "Undefined",
             priority: "Medium",
+            status: "RAW_UNCLARIFIED",
             sourceStatement: u.text,
             ambiguityFlags: ["Vague specification lacking measurable criteria"]
           });
@@ -338,6 +479,7 @@ class RequirementGenerator {
             category: "Functional",
             description: `The system shall support: ${u.text}`,
             priority: "Medium",
+            status: "RAW_UNCLARIFIED",
             acceptanceCriteria: ["System fulfills stakeholder statement"],
             sourceStatement: u.text,
             ambiguityFlags: ["Missing concrete acceptance parameters"]
@@ -356,42 +498,30 @@ class RequirementGenerator {
     let nfrIndex = 1;
 
     clarifications.forEach(c => {
+      const isAnswered = c.selectedResponse && c.selectedResponse.trim().length > 0;
       if (/perf|speed|latency/i.test(c.category)) {
         nfrs.push({
           id: `NFR-PERF-${String(nfrIndex++).padStart(2, '0')}`,
           title: `${c.category} Requirement`,
           category: "Performance",
-          description: `The system shall satisfy performance constraint: ${c.selectedResponse}`,
+          description: isAnswered ? `The system shall satisfy performance constraint: ${c.selectedResponse}` : `Performance constraint pending clarification for "${c.triggeredBy}"`,
           metric: "Response Latency / Throughput",
-          targetThreshold: c.selectedResponse,
+          targetThreshold: isAnswered ? c.selectedResponse : "Unspecified - Awaiting Clarification",
           priority: "High",
+          status: isAnswered ? "RESOLVED" : "PENDING_CLARIFICATION",
           sourceStatement: c.triggeredBy,
           clarificationReference: `Clarification #${c.id}`,
-          verificationMethod: "Automated Load / Benchmark Test"
-        });
-      } else if (/fair|bias|security|privacy/i.test(c.category)) {
-        nfrs.push({
-          id: `NFR-SEC-${String(nfrIndex++).padStart(2, '0')}`,
-          title: `${c.category} Specification`,
-          category: c.category,
-          description: `The system shall enforce security/compliance: ${c.selectedResponse}`,
-          metric: "Compliance Metric & Standard",
-          targetThreshold: c.selectedResponse,
-          priority: "Critical",
-          sourceStatement: c.triggeredBy,
-          clarificationReference: `Clarification #${c.id}`,
-          verificationMethod: "Automated Compliance Audit Suite"
+          verificationMethod: "Automated Benchmark"
         });
       } else {
         frs.push({
           id: `FR-${String(frIndex++).padStart(2, '0')}`,
-          title: `Refined Feature: ${c.category}`,
+          title: `Feature: ${c.category}`,
           category: "Functional",
-          description: `The system shall implement: ${c.selectedResponse}`,
+          description: isAnswered ? `The system shall implement: ${c.selectedResponse}` : `Feature implementation pending clarification for "${c.triggeredBy}"`,
           priority: "Must Have",
-          acceptanceCriteria: [
-            `Given valid inputs for ${c.category}, When executed, Then the system complies with ${c.selectedResponse}.`
-          ],
+          status: isAnswered ? "RESOLVED" : "PENDING_CLARIFICATION",
+          acceptanceCriteria: isAnswered ? [`Given valid inputs, system complies with: ${c.selectedResponse}`] : ["Pending clarification"],
           sourceStatement: c.triggeredBy,
           clarificationReference: `Clarification #${c.id}`,
           verificationMethod: "Automated Acceptance Testing"

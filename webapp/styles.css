@@ -760,6 +760,31 @@ body {
   border-radius: 4px;
 }
 
+.status-chip {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.3px;
+}
+.status-chip.resolved {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.status-chip.pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.req-slo-highlight.unresolved {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+  font-style: italic;
+}
+
 .req-category-tag {
   font-size: 10.5px;
   font-weight: 700;

@@ -2,45 +2,58 @@ const assert = require('assert');
 const requirementGenerator = require('../server/services/requirement-generator');
 const sampleTranscripts = require('../server/data/sample-transcripts.json');
 
-console.log('--- Running Requirement Extraction & Refinement Tests ---');
+console.log('--- Running Response-Driven Requirement Extraction Tests ---');
 
 const resumeMeeting = sampleTranscripts[0];
-const { baseline, refined } = requirementGenerator.generateRequirements(
+
+// Test 1: Check Baseline Requirements
+const { baseline: baselineReqs } = requirementGenerator.generateRequirements(
+  resumeMeeting.utterances,
+  [], // 0 clarifications
+  resumeMeeting.domain
+);
+assert(baselineReqs.frs.length >= 4, 'Baseline should contain functional requirements');
+assert(baselineReqs.nfrs.length >= 4, 'Baseline should contain non-functional requirements');
+const perfBaseline = baselineReqs.nfrs.find(n => n.category === 'Performance');
+assert(perfBaseline, 'Baseline should have performance requirement');
+assert.strictEqual(perfBaseline.targetThreshold, 'Not slow / Ideally quick');
+console.log('✓ Test 1 Passed: Baseline requirements generated with raw ambiguities');
+
+// Test 2: When NO clarifications are answered, requirements remain PENDING_CLARIFICATION
+const emptyClarifications = resumeMeeting.sampleClarifications.map(c => ({ ...c, selectedResponse: '' }));
+const { refined: unclarifiedRefined } = requirementGenerator.generateRequirements(
+  resumeMeeting.utterances,
+  emptyClarifications,
+  resumeMeeting.domain
+);
+const pendingNfr = unclarifiedRefined.nfrs.find(n => n.category === 'Performance');
+assert.strictEqual(pendingNfr.status, 'PENDING_CLARIFICATION', 'Unanswered NFR should be marked PENDING_CLARIFICATION');
+assert(pendingNfr.targetThreshold.includes('Unspecified'), 'Unanswered NFR should not invent default metrics');
+console.log('✓ Test 2 Passed: Unanswered clarifications correctly keep requirements in PENDING state');
+
+// Test 3: When clarifications ARE answered, requirements become RESOLVED with explicit numbers
+const { refined: answeredRefined } = requirementGenerator.generateRequirements(
   resumeMeeting.utterances,
   resumeMeeting.sampleClarifications,
   resumeMeeting.domain
 );
 
-// Test 1: Check Baseline Requirements
-assert(baseline.frs.length >= 4, 'Baseline should contain functional requirements');
-assert(baseline.nfrs.length >= 4, 'Baseline should contain non-functional requirements');
-const perfBaseline = baseline.nfrs.find(n => n.category === 'Performance');
-assert(perfBaseline, 'Baseline should have performance requirement');
-assert.strictEqual(perfBaseline.targetThreshold, 'Not slow / Ideally quick');
-console.log('✓ Test 1 Passed: Baseline requirements generated with raw ambiguities');
+const resolvedPerf = answeredRefined.nfrs.find(n => n.category === 'Performance');
+assert.strictEqual(resolvedPerf.status, 'RESOLVED', 'Answered NFR should be marked RESOLVED');
+assert(resolvedPerf.targetThreshold.includes('1.5s'), 'Refined Performance should contain stakeholder latency SLO');
 
-// Test 2: Check Refined Requirements
-assert(refined.frs.length >= 4, 'Refined should contain functional requirements');
-assert(refined.nfrs.length >= 5, 'Refined should contain categorized NFRs');
+const resolvedFair = answeredRefined.nfrs.find(n => n.category.includes('Fairness'));
+assert.strictEqual(resolvedFair.status, 'RESOLVED');
+assert(resolvedFair.targetThreshold.includes('DIR') || resolvedFair.targetThreshold.includes('0.80'), 'Fairness should specify stakeholder DIR');
+console.log('✓ Test 3 Passed: Stakeholder-answered clarifications produce formal RESOLVED requirements');
 
-const perfRefined = refined.nfrs.find(n => n.category === 'Performance');
-assert(perfRefined, 'Refined should have Performance NFR');
-assert(perfRefined.targetThreshold.includes('1.5s'), 'Refined Performance should contain concrete SLO < 1.5s');
-
-const fairRefined = refined.nfrs.find(n => n.category.includes('Fairness'));
-assert(fairRefined, 'Refined should have Fairness NFR');
-assert(fairRefined.targetThreshold.includes('DIR') || fairRefined.targetThreshold.includes('0.80'), 'Fairness should specify DIR');
-
-console.log('✓ Test 2 Passed: Refined requirements generated with formal metrics and SLOs');
-
-// Test 3: NFR Categorization Coverage
-const categories = refined.nfrs.map(n => n.category);
-console.log('Categorized NFRs present:', categories);
+// Test 4: NFR Categorization Coverage
+const categories = answeredRefined.nfrs.map(n => n.category);
 assert(categories.includes('Performance'), 'Must contain Performance');
 assert(categories.some(c => c.includes('Fairness')), 'Must contain Fairness');
 assert(categories.some(c => c.includes('Accuracy')), 'Must contain Accuracy');
 assert(categories.some(c => c.includes('Security')), 'Must contain Security');
 assert(categories.some(c => c.includes('Explainability')), 'Must contain Explainability');
-console.log('✓ Test 3 Passed: Comprehensive NFR categorization verified');
+console.log('✓ Test 4 Passed: Comprehensive NFR categorization verified');
 
-console.log('All Requirement Extraction Tests Passed!\n');
+console.log('All Response-Driven Requirement Extraction Tests Passed!\n');

@@ -14,8 +14,8 @@ async function runExportTests() {
     resumeMeeting.domain
   );
 
-  const baselineEval = qualityEvaluator.evaluateRequirementSet(baseline, false);
-  const refinedEval = qualityEvaluator.evaluateRequirementSet(refined, true);
+  const baselineEval = qualityEvaluator.evaluateRequirementSet(baseline);
+  const refinedEval = qualityEvaluator.evaluateRequirementSet(refined);
   const comparison = qualityEvaluator.compareQuality(baselineEval, refinedEval);
 
   const payload = {
