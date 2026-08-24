@@ -17,7 +17,7 @@ router.post('/generate', async (req, res) => {
       flags = analysis.detectedFlags;
     }
 
-    const question = aiService.generateRealTimeQuestion(text, flags);
+    const question = aiService.generateFallbackQuestion(text, flags);
     res.json({ success: true, data: question });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

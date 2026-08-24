@@ -1,14 +1,14 @@
 # AI-Powered Requirement Analysis & Quality Report (Assignment 2)
-**Generated:** 24/8/2026, 9:46:41 pm | **Evaluation:** Informed by ISO/IEC/IEEE 29148 Principles
+**Generated:** 24/8/2026, 11:23:55 pm | **Evaluation:** Informed by ISO/IEC/IEEE 29148 Principles
 *Demo Simulation: Stakeholder responses are simulated to demonstrate the clarification and refinement workflow.*
 
 ## 1. Executive Summary & Quality Scorecard
 
 - **Without Clarification (Baseline Quality):** 8 / 100 (Poor)
-- **With AI Clarification (Refined Quality):** 92 / 100 (Excellent)
-- **Overall Quality Improvement:** +84 Points
-- **Ambiguity Reduction:** -90%
-- **Testability Gain:** +90%
+- **With AI Clarification (Refined Quality):** 100 / 100 (Excellent)
+- **Overall Quality Improvement:** +92 Points
+- **Ambiguity Reduction:** -100%
+- **Testability Gain:** +100%
 
 ## 2. Stakeholder Clarification Q&A Log
 
@@ -50,10 +50,13 @@
 - **Traceability:** Clarification #q-data-01: "Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs."
 - **Verification Method:** Automated Integration Test & JSON Schema Validation
 
-### FR-02: Candidate Scoring (Pending Weighting Formula) [Priority: High]
-- **Description:** The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).
+### FR-02: Deterministic Multi-Factor Candidate Scoring Engine [Priority: Must Have]
+- **Description:** The system shall calculate composite candidate relevance scores using stakeholder-defined weighting: Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles..
 - **Acceptance Criteria:**
-  - Candidates are ranked
+  - Given a job description and candidate profile, When scored, Then the final score strictly follows the stakeholder weighting formula.
+  - Given an exceptional fresher with high project complexity, When ranked against generic experience, Then the fresher outranks when composite score is higher.
+- **Traceability:** Clarification #q-rel-01: "Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles."
+- **Verification Method:** Unit Test & Ranking Algorithm Regression Suite
 
 ### FR-03: Structured Explainability & Match Scorecard [Priority: Must Have]
 - **Description:** The system shall generate an interactive candidate match scorecard satisfying stakeholder preference: Provide a structured breakdown for each candidate: matched required skills %, matched preferred skills %, quantified project score, and 3 bullet justifications for ranking..
@@ -113,8 +116,8 @@
 
 | Evaluation Dimension | Without Clarification | With Clarification | Improvement |
 | :--- | :--- | :--- | :--- |
-| **Overall Quality Index** | 8/100 | 92/100 | +84 pts |
-| **Ambiguity Score** | 100% | 10% | -90% |
-| **Completeness Coverage** | 35% | 94% | +59% |
-| **Testability & Verifiability** | 25% | 90% | +65% |
-| **Specificity & Measurability** | 30% | 90% | +60% |
+| **Overall Quality Index** | 8/100 | 100/100 | +92 pts |
+| **Ambiguity Score** | 100% | 12% | -88% |
+| **Completeness Coverage** | 35% | 100% | +65% |
+| **Testability & Verifiability** | 25% | 100% | +75% |
+| **Specificity & Measurability** | 30% | 100% | +70% |

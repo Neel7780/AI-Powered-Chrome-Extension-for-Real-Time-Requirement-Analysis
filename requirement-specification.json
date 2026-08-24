@@ -414,22 +414,24 @@
       },
       {
         "id": "FR-02",
-        "title": "Candidate Scoring (Pending Weighting Formula)",
+        "title": "Deterministic Multi-Factor Candidate Scoring Engine",
         "category": "Functional",
-        "description": "The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).",
-        "priority": "High",
-        "status": "PENDING_CLARIFICATION",
-        "source": "RAW_DIALOGUE",
-        "originalText": "Mainly skills and experience. And overall profile strength.",
-        "refinedText": "Candidate ranking weighting formula pending stakeholder input.",
-        "stakeholderEvidence": null,
+        "description": "The system shall calculate composite candidate relevance scores using stakeholder-defined weighting: Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles..",
+        "priority": "Must Have",
+        "targetUser": "System Algorithm / Recruiter",
+        "status": "RESOLVED",
+        "source": "STAKEHOLDER_CLARIFICATION",
+        "sourceClarificationId": "q-rel-01",
+        "originalText": "Mainly skills and experience. And overall profile strength. Things like good companies, solid projects...",
+        "refinedText": "The system shall execute candidate ranking using multi-factor formula: Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles..",
+        "stakeholderEvidence": "Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles.",
         "acceptanceCriteria": [
-          "Candidates are ranked"
+          "Given a job description and candidate profile, When scored, Then the final score strictly follows the stakeholder weighting formula.",
+          "Given an exceptional fresher with high project complexity, When ranked against generic experience, Then the fresher outranks when composite score is higher."
         ],
-        "sourceStatement": "Mainly skills and experience. And overall profile strength.",
-        "ambiguityFlags": [
-          "'Good companies', 'solid projects', and fresher weighting formula unresolved"
-        ]
+        "sourceStatement": "It should rank them based on relevance... Sometimes a strong fresher is better than someone with 5 average years.",
+        "clarificationReference": "Clarification #q-rel-01: \"Weighting formula: 45% Skill Match & Demonstrated Tech Stack, 35% Project Impact & Scope (open source, deployed apps), 20% Relevant Experience; allow freshers with high project scores to outrank generic profiles.\"",
+        "verificationMethod": "Unit Test & Ranking Algorithm Regression Suite"
       },
       {
         "id": "FR-03",
@@ -704,33 +706,25 @@
       "summary": "Baseline raw specification (Poor rating, OQI: 8/100). High ambiguity (100%). 0 of 8 requirements resolved. Stakeholder clarification required."
     },
     "refined": {
-      "overallQualityIndex": 92,
+      "overallQualityIndex": 100,
       "qualityTier": "Excellent",
       "isFullyRefined": true,
       "requirementCount": {
         "total": 10,
         "frCount": 4,
         "nfrCount": 6,
-        "resolvedCount": 9,
-        "pendingCount": 1
+        "resolvedCount": 10,
+        "pendingCount": 0
       },
       "metrics": {
         "ambiguity": {
-          "score": 10,
-          "totalVagueInstances": 2,
-          "flaggedCount": 1,
-          "flaggedItems": [
-            {
-              "id": "FR-02",
-              "matches": [
-                "pending clarification",
-                "solid"
-              ]
-            }
-          ]
+          "score": 0,
+          "totalVagueInstances": 0,
+          "flaggedCount": 0,
+          "flaggedItems": []
         },
         "completeness": {
-          "score": 94,
+          "score": 100,
           "presentCategories": [
             "Performance",
             "Fairness & Bias",
@@ -748,35 +742,35 @@
             "Project Scope"
           ],
           "categoryCoveragePercentage": 100,
-          "resolvedCount": 9,
+          "resolvedCount": 10,
           "totalCount": 10,
-          "resolvedRatio": 90
+          "resolvedRatio": 100
         },
         "testability": {
-          "score": 90,
-          "testableCount": 9,
+          "score": 100,
+          "testableCount": 10,
           "totalCount": 10,
-          "testabilityPercentage": 90
+          "testabilityPercentage": 100
         },
         "specificity": {
-          "score": 90,
-          "specificCount": 9,
+          "score": 100,
+          "specificCount": 10,
           "totalCount": 10
         },
         "traceability": {
-          "score": 95,
+          "score": 100,
           "traceableCount": 10,
           "totalCount": 10
         }
       },
       "radarScores": {
-        "completeness": 94,
-        "testability": 90,
-        "specificity": 90,
-        "traceability": 95,
-        "clarity": 90
+        "completeness": 100,
+        "testability": 100,
+        "specificity": 100,
+        "traceability": 100,
+        "clarity": 100
       },
-      "summary": "High-precision specification (Excellent rating, OQI: 92/100). 9 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
+      "summary": "High-precision specification (Excellent rating, OQI: 100/100). 10 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
     },
     "comparison": {
       "baseline": {
@@ -897,33 +891,25 @@
         "summary": "Baseline raw specification (Poor rating, OQI: 8/100). High ambiguity (100%). 0 of 8 requirements resolved. Stakeholder clarification required."
       },
       "refined": {
-        "overallQualityIndex": 92,
+        "overallQualityIndex": 100,
         "qualityTier": "Excellent",
         "isFullyRefined": true,
         "requirementCount": {
           "total": 10,
           "frCount": 4,
           "nfrCount": 6,
-          "resolvedCount": 9,
-          "pendingCount": 1
+          "resolvedCount": 10,
+          "pendingCount": 0
         },
         "metrics": {
           "ambiguity": {
-            "score": 10,
-            "totalVagueInstances": 2,
-            "flaggedCount": 1,
-            "flaggedItems": [
-              {
-                "id": "FR-02",
-                "matches": [
-                  "pending clarification",
-                  "solid"
-                ]
-              }
-            ]
+            "score": 0,
+            "totalVagueInstances": 0,
+            "flaggedCount": 0,
+            "flaggedItems": []
           },
           "completeness": {
-            "score": 94,
+            "score": 100,
             "presentCategories": [
               "Performance",
               "Fairness & Bias",
@@ -941,50 +927,50 @@
               "Project Scope"
             ],
             "categoryCoveragePercentage": 100,
-            "resolvedCount": 9,
+            "resolvedCount": 10,
             "totalCount": 10,
-            "resolvedRatio": 90
+            "resolvedRatio": 100
           },
           "testability": {
-            "score": 90,
-            "testableCount": 9,
+            "score": 100,
+            "testableCount": 10,
             "totalCount": 10,
-            "testabilityPercentage": 90
+            "testabilityPercentage": 100
           },
           "specificity": {
-            "score": 90,
-            "specificCount": 9,
+            "score": 100,
+            "specificCount": 10,
             "totalCount": 10
           },
           "traceability": {
-            "score": 95,
+            "score": 100,
             "traceableCount": 10,
             "totalCount": 10
           }
         },
         "radarScores": {
-          "completeness": 94,
-          "testability": 90,
-          "specificity": 90,
-          "traceability": 95,
-          "clarity": 90
+          "completeness": 100,
+          "testability": 100,
+          "specificity": 100,
+          "traceability": 100,
+          "clarity": 100
         },
-        "summary": "High-precision specification (Excellent rating, OQI: 92/100). 9 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
+        "summary": "High-precision specification (Excellent rating, OQI: 100/100). 10 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
       },
       "delta": {
-        "overallQualityIndex": 84,
-        "ambiguityReduction": 90,
-        "completenessGain": 94,
-        "testabilityGain": 90,
-        "specificityGain": 90,
-        "traceabilityGain": 45
+        "overallQualityIndex": 92,
+        "ambiguityReduction": 100,
+        "completenessGain": 100,
+        "testabilityGain": 100,
+        "specificityGain": 100,
+        "traceabilityGain": 50
       },
-      "percentageImprovement": 1050,
+      "percentageImprovement": 1150,
       "keyFindings": [
-        "Overall Requirement Quality: 8/100 (Poor) -> 92/100 (Excellent) [+84 pts].",
-        "Ambiguity level: 100% in baseline vs 10% in refined (90% reduction).",
-        "Testability: 0% in baseline vs 90% in refined.",
-        "Resolution rate: 9 of 10 requirements fully resolved."
+        "Overall Requirement Quality: 8/100 (Poor) -> 100/100 (Excellent) [+92 pts].",
+        "Ambiguity level: 100% in baseline vs 0% in refined (100% reduction).",
+        "Testability: 0% in baseline vs 100% in refined.",
+        "Resolution rate: 10 of 10 requirements fully resolved."
       ]
     }
   }

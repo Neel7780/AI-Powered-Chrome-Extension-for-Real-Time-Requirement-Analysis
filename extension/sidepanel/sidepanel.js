@@ -7,6 +7,7 @@ let activeClarifications = [];
 let generatedRequirements = null;
 let qualityEvaluation = null;
 let currentReqFilter = 'all';
+let backendReachable = true;
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Navigation Tabs
@@ -140,7 +141,10 @@ function loadSamplePDFMeeting() {
     });
   });
 
-  activeClarifications = [...sample.sampleClarifications];
+  // Copy each clarification object, not just the array: selecting a response
+  // writes to `selectedResponse`, which would otherwise mutate the shared sample
+  // data and leave stale answers behind after "Clear all".
+  activeClarifications = sample.sampleClarifications.map(c => ({ ...c }));
   renderAll();
 }
 
@@ -170,11 +174,14 @@ function renderTranscript() {
   }
 
   feed.innerHTML = activeTranscript.map((u, i) => {
-    let displayText = u.text;
+    // Escape before highlighting, and escape the flag phrase the same way so it
+    // still matches. Regex metacharacters in the phrase are neutralised.
+    let displayText = escapeHtml(u.text);
     if (u.detectedFlags && u.detectedFlags.length > 0) {
       u.detectedFlags.forEach(f => {
+        if (!f.phrase) return;
         displayText = displayText.replace(
-          new RegExp(`(${f.phrase})`, 'gi'),
+          new RegExp(`(${escapeRegex(escapeHtml(f.phrase))})`, 'gi'),
           '<span class="highlight-vague">$1</span>'
         );
       });
@@ -183,13 +190,13 @@ function renderTranscript() {
     return `
       <div class="utterance-card ${u.isAmbiguous ? 'ambiguous' : ''}">
         <div class="utterance-meta">
-          <span class="speaker-name">${u.speaker || 'Speaker'}</span>
-          <span class="speaker-time">${u.timestamp || '00:00'}</span>
+          <span class="speaker-name">${escapeHtml(u.speaker || 'Speaker')}</span>
+          <span class="speaker-time">${escapeHtml(u.timestamp || '00:00')}</span>
         </div>
         <div class="utterance-text">${displayText}</div>
         ${u.detectedFlags && u.detectedFlags.length > 0 ? `
           <div class="flags-tags">
-            ${u.detectedFlags.map(f => `<span class="flag-badge">${f.category}: ${f.severity}</span>`).join('')}
+            ${u.detectedFlags.map(f => `<span class="flag-badge">${escapeHtml(f.category)}: ${escapeHtml(f.severity)}</span>`).join('')}
           </div>
         ` : ''}
       </div>
@@ -219,26 +226,26 @@ function renderClarifications() {
     return `
       <div class="clarification-card ${isAnswered ? 'answered' : ''}">
         <div class="q-header">
-          <span class="q-cat">${c.category || 'Clarification'}</span>
+          <span class="q-cat">${escapeHtml(c.category || 'Clarification')}</span>
           <span style="font-size: 11px; color: ${isAnswered ? '#10b981' : '#f59e0b'}; font-weight: 700;">
             ${isAnswered ? '✓ Clarified' : '● Needs Answer'}
           </span>
         </div>
-        <div class="q-title">${c.question}</div>
-        ${c.triggeredBy ? `<div class="q-trigger">Triggered by: "${c.triggeredBy}"</div>` : ''}
-        
+        <div class="q-title">${escapeHtml(c.question)}</div>
+        ${c.triggeredBy ? `<div class="q-trigger">Triggered by: "${escapeHtml(c.triggeredBy)}"</div>` : ''}
+
         <div class="options-stack">
           ${(c.suggestedOptions || c.options || []).map((opt, oIdx) => {
             const selected = c.selectedResponse === opt ? 'selected' : '';
             return `
-              <button class="option-choice-btn ${selected}" data-qindex="${idx}" data-opt="${opt}">
-                ${opt}
+              <button class="option-choice-btn ${selected}" data-qindex="${idx}" data-opt="${escapeHtml(opt)}">
+                ${escapeHtml(opt)}
               </button>
             `;
           }).join('')}
         </div>
 
-        <input type="text" class="custom-answer-input" placeholder="Or enter custom stakeholder clarification..." value="${c.selectedResponse || ''}" data-qindex="${idx}" />
+        <input type="text" class="custom-answer-input" placeholder="Or enter custom stakeholder clarification..." value="${escapeHtml(c.selectedResponse || '')}" data-qindex="${idx}" />
       </div>
     `;
   }).join('');
@@ -276,6 +283,11 @@ async function updateRequirementsAndQuality() {
 
   // Generate via API or offline logic
   const reqData = await window.ExtensionAPI?.generateRequirements(activeTranscript, activeClarifications, 'HR Tech');
+  // A null result means the local backend is unreachable. Record that so the
+  // Requirements and Quality tabs can say so instead of showing an empty panel
+  // that looks like "no requirements found".
+  backendReachable = !!reqData;
+
   if (reqData) {
     generatedRequirements = reqData;
     const evalData = await window.ExtensionAPI?.evaluateRequirements(reqData.baseline, reqData.refined);
@@ -296,7 +308,15 @@ function renderRequirements() {
   const badgeReq = document.getElementById('badge-req-count');
 
   if (!generatedRequirements?.refined) {
-    list.innerHTML = `
+    list.innerHTML = !backendReachable
+      ? `
+      <div class="empty-state">
+        <div class="empty-icon">🔌</div>
+        <p><strong>Backend unreachable.</strong> Ambiguity detection and clarification capture keep working offline, but requirement synthesis and quality evaluation need the local server.</p>
+        <p style="margin-top: 6px; font-size: 11px; opacity: 0.8;">Run <code>npm start</code> and reopen this panel.</p>
+      </div>
+    `
+      : `
       <div class="empty-state">
         <div class="empty-icon">📋</div>
         <p>Requirements will be automatically synthesized from transcript and clarifications.</p>
@@ -324,22 +344,22 @@ function renderRequirements() {
       <div class="req-card ${isResolved ? 'resolved' : 'pending'}">
         <div class="req-card-top">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="req-id">${req.id}</span>
+            <span class="req-id">${escapeHtml(req.id)}</span>
             <span style="font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 8px; background: ${isResolved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}; color: ${isResolved ? '#6ee7b7' : '#fcd34d'};">
               ${isResolved ? 'RESOLVED' : 'PENDING'}
             </span>
           </div>
-          <span class="req-priority ${req.priority === 'High' ? 'high' : ''}">${req.priority || 'High'}</span>
+          <span class="req-priority ${req.priority === 'High' ? 'high' : ''}">${escapeHtml(req.priority || 'High')}</span>
         </div>
-        <div class="req-title">${req.title}</div>
-        <div class="req-desc">${req.description}</div>
+        <div class="req-title">${escapeHtml(req.title)}</div>
+        <div class="req-desc">${escapeHtml(req.description)}</div>
         ${isNFR ? `
           <div class="req-metric-box" style="${isResolved ? '' : 'background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d;'}">
-            <strong>Target SLO / Metric:</strong> ${req.targetThreshold || req.metric}
+            <strong>Target SLO / Metric:</strong> ${escapeHtml(req.targetThreshold || req.metric)}
           </div>
         ` : `
           <div style="font-size: 11px; color: #94a3b8; font-style: italic;">
-            ${(req.acceptanceCriteria || []).slice(0, 1).join('')}
+            ${escapeHtml((req.acceptanceCriteria || []).slice(0, 1).join(''))}
           </div>
         `}
       </div>
@@ -353,14 +373,29 @@ function renderQualityTab() {
   const refScoreEl = document.getElementById('qual-refined-score');
   const deltaBadge = document.getElementById('qual-delta-badge');
 
-  const baseOQI = qualityEvaluation?.baseline?.overallQualityIndex || 30;
-  const refOQI = qualityEvaluation?.refined?.overallQualityIndex || 92;
-  const delta = refOQI - baseOQI;
+  // Never fabricate scores: until an evaluation exists, show placeholders rather
+  // than hard-coded numbers that would misreport the measured quality.
+  const baseOQI = qualityEvaluation?.baseline?.overallQualityIndex;
+  const refOQI = qualityEvaluation?.refined?.overallQualityIndex;
 
+  if (typeof baseOQI !== 'number' || typeof refOQI !== 'number') {
+    baseScoreEl.innerText = '--';
+    refScoreEl.innerText = '--';
+    badgeScore.innerText = '--';
+    deltaBadge.innerText = backendReachable
+      ? 'Awaiting requirement evaluation'
+      : 'Backend unreachable — start the server on port 3000';
+    return;
+  }
+
+  const delta = refOQI - baseOQI;
   baseScoreEl.innerText = `${baseOQI}%`;
   refScoreEl.innerText = `${refOQI}%`;
   badgeScore.innerText = `${refOQI}%`;
-  deltaBadge.innerText = `+${delta} Points Overall Quality Improvement (+${Math.round((delta/baseOQI)*100)}%)`;
+  // Guard the relative figure: a baseline of 0 has no finite percentage gain.
+  deltaBadge.innerText = baseOQI > 0
+    ? `+${delta} Points Overall Quality Improvement (+${Math.round((delta / baseOQI) * 100)}%)`
+    : `+${delta} Points Overall Quality Improvement`;
 }
 
 async function triggerExport(format) {
@@ -390,4 +425,20 @@ async function triggerExport(format) {
   } catch (err) {
     alert(`Export error: ${err.message}`);
   }
+}
+
+// --- Shared escaping helpers (hoisted; used by the render code above) ---
+function escapeHtml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Neutralise regex metacharacters so transcript-derived phrases can be used as
+// literal search patterns.
+function escapeRegex(str) {
+  return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

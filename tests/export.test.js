@@ -52,7 +52,7 @@ async function runExportTests() {
   console.log('All Export Service Tests Passed!\n');
 }
 
-runExportTests().catch(err => {
+module.exports = runExportTests().catch(err => {
   console.error('Export test failed:', err);
   process.exit(1);
 });

@@ -27,7 +27,7 @@ async function runAITests() {
   console.log('All AI Integration Tests Passed!\n');
 }
 
-runAITests().catch(err => {
+module.exports = runAITests().catch(err => {
   console.error('AI integration test failed:', err);
   process.exit(1);
 });

@@ -35,26 +35,49 @@ document.addEventListener('DOMContentLoaded', async () => {
       statAmbiguous.innerText = state.ambiguousCount;
       statClarifications.innerText = state.clarifications.length;
 
-      // Quality score estimate
-      if (state.clarifications.length > 0) {
-        statQuality.innerText = '92%';
-      } else if (state.transcript.length > 0) {
-        statQuality.innerText = '35%';
-      } else {
-        statQuality.innerText = '--';
-      }
+      // Quality is measured, never assumed: ask the evaluator for the real index
+      // instead of printing a fixed number whenever a question happens to exist.
+      updateQualityStat(state);
 
       if (state.transcript.length > 0) {
         const last = state.transcript[state.transcript.length - 1];
-        let text = last.text;
+        // Escape first, then highlight against the identically-escaped phrase.
+        let text = escapeHtml(last.text);
         if (last.detectedFlags && last.detectedFlags.length > 0) {
           last.detectedFlags.forEach(f => {
-            text = text.replace(new RegExp(`(${f.phrase})`, 'gi'), '<span class="highlight-vague">$1</span>');
+            if (!f.phrase) return;
+            text = text.replace(
+              new RegExp(`(${escapeRegex(escapeHtml(f.phrase))})`, 'gi'),
+              '<span class="highlight-vague">$1</span>'
+            );
           });
         }
-        latestUtterance.innerHTML = `<strong>${last.speaker || 'Speaker'}:</strong> ${text}`;
+        latestUtterance.innerHTML = `<strong>${escapeHtml(last.speaker || 'Speaker')}:</strong> ${text}`;
       }
     });
+  }
+
+  // Derives the Overall Quality Index from the current meeting state. Shows '--'
+  // when there is nothing to score or the backend evaluator is unreachable,
+  // rather than displaying a placeholder score as if it were measured.
+  async function updateQualityStat(state) {
+    if (!state.transcript.length || !window.ExtensionAPI) {
+      statQuality.innerText = '--';
+      return;
+    }
+
+    const reqData = await window.ExtensionAPI.generateRequirements(
+      state.transcript, state.clarifications, 'HR Tech'
+    );
+    if (!reqData) {
+      statQuality.innerText = 'n/a';
+      statQuality.title = 'Start the backend on port 3000 to compute the quality index';
+      return;
+    }
+
+    const evalData = await window.ExtensionAPI.evaluateRequirements(reqData.baseline, reqData.refined);
+    const oqi = evalData?.refined?.overallQualityIndex;
+    statQuality.innerText = typeof oqi === 'number' ? `${oqi}%` : 'n/a';
   }
 
   refreshState();
@@ -102,3 +125,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 });
+
+// --- Shared escaping helpers (hoisted; used by the render code above) ---
+function escapeHtml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Neutralise regex metacharacters so transcript-derived phrases can be used as
+// literal search patterns.
+function escapeRegex(str) {
+  return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

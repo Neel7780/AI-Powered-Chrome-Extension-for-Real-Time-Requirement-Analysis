@@ -9,6 +9,23 @@
   let activeQuestion = null;
   let selectedOption = null;
 
+  // The HUD is injected into a third-party page (Zoom / Meet / Teams) and renders
+  // live caption text, so every interpolation is escaped.
+  function escapeHtml(str) {
+    return (str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // Neutralise regex metacharacters so caption-derived phrases can be used as
+  // literal search patterns.
+  function escapeRegex(str) {
+    return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   function createHUD() {
     if (document.getElementById('ai-re-hud-container')) return;
 
@@ -75,11 +92,14 @@
     if (speakerEl) speakerEl.innerText = `${data.speaker || 'Speaker'} (${data.timestamp || 'now'}):`;
 
     if (feedText) {
-      let displayText = data.text;
+      // Escape first, then highlight against the identically-escaped phrase, so
+      // live captions can never inject markup into the host page's HUD.
+      let displayText = escapeHtml(data.text);
       if (data.detectedFlags && data.detectedFlags.length > 0) {
         data.detectedFlags.forEach(flag => {
+          if (!flag.phrase) return;
           displayText = displayText.replace(
-            new RegExp(`(${flag.phrase})`, 'gi'),
+            new RegExp(`(${escapeRegex(escapeHtml(flag.phrase))})`, 'gi'),
             '<span class="ai-re-highlight-vague">$1</span>'
           );
         });
@@ -100,11 +120,11 @@
 
     slot.innerHTML = `
       <div class="ai-re-question-card">
-        <span class="ai-re-q-tag">${q.category || 'Clarification'}</span>
-        <div class="ai-re-q-text">${q.question}</div>
+        <span class="ai-re-q-tag">${escapeHtml(q.category || 'Clarification')}</span>
+        <div class="ai-re-q-text">${escapeHtml(q.question)}</div>
         <div class="ai-re-options-list" id="ai-re-options-list">
           ${(q.suggestedOptions || []).map((opt, i) => `
-            <button class="ai-re-opt-btn" data-index="${i}">${opt}</button>
+            <button class="ai-re-opt-btn" data-index="${i}">${escapeHtml(opt)}</button>
           `).join('')}
         </div>
         <button class="ai-re-submit-btn" id="ai-re-submit-answer" disabled>Record Clarification Response</button>

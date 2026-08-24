@@ -26,9 +26,11 @@ class RequirementGenerator {
    * 1. Baseline Requirements (Without Clarification)
    */
   generateBaseline(utterances = [], domain = 'HR Tech') {
-    const isResumeMeeting = utterances.some(u => 
-      /resume|candidate|ranking|screening|hiring|hr/i.test(u.text)
-    ) || domain.toLowerCase().includes('hr');
+    // Word-boundary matching is required: an unanchored /hr/ also matches
+    // "t-hr-oughput", which misrouted unrelated domains into this template.
+    const isResumeMeeting = utterances.some(u =>
+      /\b(resume|resumes|candidate|candidates|ranking|screening|hiring|recruiter|recruitment|shortlist|shortlisting|hr)\b/i.test(u.text)
+    ) || /\bhr\b|recruit|resume|talent/i.test(domain.toLowerCase());
 
     if (isResumeMeeting) {
       return {
@@ -146,29 +148,68 @@ class RequirementGenerator {
    * 2. Refined Requirements (Response-Driven with Provenance)
    */
   generateRefined(utterances = [], clarifications = [], domain = 'HR Tech') {
-    const isResumeMeeting = utterances.some(u => 
-      /resume|candidate|ranking|screening|hiring|hr/i.test(u.text)
-    ) || domain.toLowerCase().includes('hr');
+    // Word-boundary matching is required: an unanchored /hr/ also matches
+    // "t-hr-oughput", which misrouted unrelated domains into this template.
+    const isResumeMeeting = utterances.some(u =>
+      /\b(resume|resumes|candidate|candidates|ranking|screening|hiring|recruiter|recruitment|shortlist|shortlisting|hr)\b/i.test(u.text)
+    ) || /\bhr\b|recruit|resume|talent/i.test(domain.toLowerCase());
 
     if (isResumeMeeting) {
-      const findAnswer = (pattern) => {
-        const found = clarifications.find(c => 
-          (c.id && c.id.toLowerCase().includes(pattern.toLowerCase())) || 
-          (c.category && c.category.toLowerCase().includes(pattern.toLowerCase())) ||
-          (c.triggeredBy && c.triggeredBy.toLowerCase().includes(pattern.toLowerCase()))
-        );
-        return (found && found.selectedResponse && found.selectedResponse.trim().length > 0) 
-          ? { answered: true, text: found.selectedResponse.trim(), clarificationId: found.id || 'CQ-AUTO' } 
-          : { answered: false, text: null, clarificationId: found?.id || null };
+      // Map each stakeholder clarification onto exactly one requirement slot.
+      // Patterns are ordered most-specific-first, and a clarification can be
+      // claimed by only one slot, so (for example) a latency answer can never
+      // leak into the data-ingestion requirement via a loose text match.
+      const SLOTS = [
+        ['perf', ['q-perf', 'performance', 'latency', 'response time']],
+        ['fair', ['q-fair', 'fairness', 'bias']],
+        ['acc', ['q-acc', 'accuracy', 'precision', 'quality']],
+        ['exp', ['q-exp', 'explainab', 'explain', 'scorecard']],
+        ['rel', ['q-rel', 'scoring', 'ranking', 'weighting', 'relevance']],
+        ['data', ['q-data', 'data', 'ingestion', 'parsing', 'structured', 'resumes']],
+        ['scope', ['q-scope', 'scope', 'timeline', 'milestone', 'mvp']]
+      ];
+
+      const matched = {};
+      const claimed = new Set();
+
+      const resolvePass = (readField) => {
+        for (const [slot, patterns] of SLOTS) {
+          if (matched[slot]) continue;
+          for (const pattern of patterns) {
+            const idx = clarifications.findIndex(
+              (c, i) => !claimed.has(i) && readField(c).includes(pattern)
+            );
+            if (idx !== -1) {
+              claimed.add(idx);
+              matched[slot] = clarifications[idx];
+              break;
+            }
+          }
+        }
       };
 
-      const perf = findAnswer('Performance');
-      const fair = findAnswer('Fairness');
-      const acc = findAnswer('Accuracy');
-      const exp = findAnswer('Explainability');
-      const rel = findAnswer('Ranking') || findAnswer('Scoring') || findAnswer('relevance');
-      const data = findAnswer('Data') || findAnswer('resumes') || findAnswer('structured');
-      const scope = findAnswer('Scope') || findAnswer('MVP') || findAnswer('soon');
+      // Pass 1 is authoritative (question id / category); pass 2 falls back to
+      // the vague statement that triggered the question, for live-generated
+      // clarifications whose category label does not match a known slot.
+      resolvePass(c => `${c.id || ''} ${c.category || ''}`.toLowerCase());
+      resolvePass(c => (c.triggeredBy || '').toLowerCase());
+
+      const findAnswer = (slot) => {
+        const c = matched[slot];
+        if (!c) return { answered: false, text: null, clarificationId: null };
+        const response = (c.selectedResponse || '').trim();
+        return response.length > 0
+          ? { answered: true, text: response, clarificationId: c.id || 'CQ-AUTO' }
+          : { answered: false, text: null, clarificationId: c.id || null };
+      };
+
+      const perf = findAnswer('perf');
+      const fair = findAnswer('fair');
+      const acc = findAnswer('acc');
+      const exp = findAnswer('exp');
+      const rel = findAnswer('rel');
+      const data = findAnswer('data');
+      const scope = findAnswer('scope');
 
       const frs = [
         // FR-01: Data Ingestion & Parsing
@@ -571,6 +612,12 @@ class RequirementGenerator {
   }
 
   generateGenericRefined(utterances, clarifications, domain) {
+    // A requirement is only RESOLVED once a stakeholder has actually answered;
+    // the mere existence of an open question is not evidence.
+    const answeredClarification = clarifications.find(
+      c => c.selectedResponse && c.selectedResponse.trim().length > 0
+    ) || null;
+
     const frs = [
       {
         id: "FR-GEN-01",
@@ -578,18 +625,20 @@ class RequirementGenerator {
         category: "Functional",
         description: `The system shall execute validated ${domain} workflow according to established stakeholder requirements.`,
         priority: "Must Have",
-        status: clarifications.length > 0 ? "RESOLVED" : "PENDING_CLARIFICATION",
-        source: clarifications.length > 0 ? "STAKEHOLDER_CLARIFICATION" : "RAW_DIALOGUE",
-        sourceClarificationId: clarifications[0]?.id || null,
+        status: answeredClarification ? "RESOLVED" : "PENDING_CLARIFICATION",
+        source: answeredClarification ? "STAKEHOLDER_CLARIFICATION" : "RAW_DIALOGUE",
+        sourceClarificationId: answeredClarification?.id || null,
         originalText: utterances[0]?.text || "Initial meeting statement",
         refinedText: `Core workflow implementation for ${domain}.`,
-        stakeholderEvidence: clarifications[0]?.selectedResponse || null,
+        stakeholderEvidence: answeredClarification?.selectedResponse || null,
         acceptanceCriteria: [
           "Given valid domain input, When processed, Then verified output schema is generated.",
           "Given invalid input, When received, Then structured HTTP 400 error is returned."
         ],
         sourceStatement: utterances[0]?.text || "Initial meeting statement",
-        clarificationReference: clarifications[0] ? `Clarification #${clarifications[0].id}: "${clarifications[0].selectedResponse}"` : null,
+        clarificationReference: answeredClarification
+          ? `Clarification #${answeredClarification.id}: "${answeredClarification.selectedResponse}"`
+          : null,
         verificationMethod: "Automated Integration Test Suite"
       }
     ];

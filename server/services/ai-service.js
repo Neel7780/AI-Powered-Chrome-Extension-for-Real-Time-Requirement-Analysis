@@ -219,7 +219,7 @@ If the statement is NOT ambiguous (or is a question), return isAmbiguous: false,
       };
     }
 
-    if (/explain|scorecard|why|reason/i.test(lower)) {
+    if (/explain|scorecard|breakdown|justification|useful|why|reason/i.test(lower)) {
       return {
         id,
         category: 'Explainability',

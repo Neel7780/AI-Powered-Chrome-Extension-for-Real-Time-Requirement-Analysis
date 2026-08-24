@@ -1,6 +1,16 @@
 # Dependencies
 node_modules/
-package-lock.json
+
+# Python Virtual Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Reference artifacts
+ref_solution/
+__MACOSX/
+Take_Home_Assignment_2_solution.zip
 
 # Environment Secrets
 .env
@@ -11,6 +21,16 @@ package-lock.json
 *.zip
 *.tar.gz
 
-# System Files
+# Shell, IDE & OS Files
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+.claude/
+.bash*
+.zsh*
+.profile
+.gitconfig
+.gitmodules
+.mcp.json
+.ripgreprc

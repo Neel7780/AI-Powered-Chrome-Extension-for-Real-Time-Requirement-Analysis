@@ -273,11 +273,16 @@ function renderUtteranceBubble(u) {
   const bubble = document.createElement('div');
   bubble.className = `utterance-bubble ${u.isAmbiguous ? 'ambiguous' : ''}`;
 
-  let displayText = u.text;
+  // Escape the transcript first, then highlight. The flag phrase is escaped the
+  // same way before being turned into a pattern, and its regex metacharacters
+  // are neutralised — an utterance containing "(" or "$" would otherwise throw
+  // or match the wrong span.
+  let displayText = escapeHtml(u.text);
   if (u.detectedFlags && u.detectedFlags.length > 0) {
     u.detectedFlags.forEach(f => {
+      if (!f.phrase) return;
       displayText = displayText.replace(
-        new RegExp(`(${f.phrase})`, 'gi'),
+        new RegExp(`(${escapeRegex(escapeHtml(f.phrase))})`, 'gi'),
         '<span class="highlight-vague">$1</span>'
       );
     });
@@ -293,15 +298,15 @@ function renderUtteranceBubble(u) {
   bubble.innerHTML = `
     <div class="u-top">
       <div class="u-speaker-wrap">
-        <div class="u-avatar ${avatarClass}">${(u.speaker || 'S')[0]}</div>
-        <span class="u-speaker">${u.speaker || 'Participant'}</span>
+        <div class="u-avatar ${avatarClass}">${escapeHtml((u.speaker || 'S')[0])}</div>
+        <span class="u-speaker">${escapeHtml(u.speaker || 'Participant')}</span>
       </div>
-      <span class="u-time">${u.timestamp || '00:00'}</span>
+      <span class="u-time">${escapeHtml(u.timestamp || '00:00')}</span>
     </div>
     <div class="u-body">${displayText}</div>
     ${u.detectedFlags && u.detectedFlags.length > 0 ? `
       <div class="u-flags-row">
-        ${u.detectedFlags.map(f => `<span class="flag-chip">${f.category}: ${f.severity}</span>`).join('')}
+        ${u.detectedFlags.map(f => `<span class="flag-chip">${escapeHtml(f.category)}: ${escapeHtml(f.severity)}</span>`).join('')}
       </div>
     ` : ''}
   `;
@@ -357,13 +362,13 @@ function renderClarificationsHub() {
     return `
       <div class="clarify-card ${isAnswered ? 'answered' : ''}">
         <div class="c-header">
-          <span class="c-tag">${c.category || 'Clarification'}</span>
+          <span class="c-tag">${escapeHtml(c.category || 'Clarification')}</span>
           <span class="c-status ${isAnswered ? 'clarified' : 'pending'}">
             ${isAnswered ? '✓ Clarified by Stakeholder' : '● Needs Stakeholder Input'}
           </span>
         </div>
-        <div class="c-question">${c.question}</div>
-        ${c.triggeredBy ? `<div class="c-trigger">Triggered by statement: "${c.triggeredBy}"</div>` : ''}
+        <div class="c-question">${escapeHtml(c.question)}</div>
+        ${c.triggeredBy ? `<div class="c-trigger">Triggered by statement: "${escapeHtml(c.triggeredBy)}"</div>` : ''}
 
         <div class="c-options-stack">
           <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px; font-weight: 600;">
@@ -373,13 +378,13 @@ function renderClarificationsHub() {
             const isSelected = c.selectedResponse === opt ? 'selected' : '';
             return `
               <button class="opt-choice-btn ${isSelected}" data-idx="${idx}" data-opt="${escapeHtml(opt)}">
-                ${opt}
+                ${escapeHtml(opt)}
               </button>
             `;
           }).join('')}
         </div>
 
-        <input type="text" class="c-custom-input" placeholder="Or type custom stakeholder specification..." value="${c.selectedResponse || ''}" data-idx="${idx}" />
+        <input type="text" class="c-custom-input" placeholder="Or type custom stakeholder specification..." value="${escapeHtml(c.selectedResponse || '')}" data-idx="${idx}" />
       </div>
     `;
   }).join('');
@@ -406,7 +411,10 @@ function renderClarificationsHub() {
 
 function autoClarifyAll() {
   if (currentScenario?.sampleClarifications) {
-    activeClarifications = [...currentScenario.sampleClarifications];
+    // Copy each object, not just the array: selecting an answer writes to
+    // `selectedResponse`, which would otherwise mutate the shared scenario
+    // data and leave answers behind after a Reset.
+    activeClarifications = currentScenario.sampleClarifications.map(c => ({ ...c }));
   } else {
     activeClarifications.forEach(c => {
       if (!c.selectedResponse) {
@@ -795,6 +803,12 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+// Neutralise regex metacharacters so transcript-derived phrases can be used as
+// literal search patterns.
+function escapeRegex(str) {
+  return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Fallback client analyzer
