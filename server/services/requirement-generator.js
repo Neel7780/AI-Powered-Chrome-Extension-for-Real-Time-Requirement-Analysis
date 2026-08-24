@@ -403,19 +403,30 @@ class RequirementGenerator {
           ambiguityFlags: ["Explainability fidelity benchmark and latency SLO unresolved"]
         },
 
-        // NFR-SEC-01: Security
-        {
+        // NFR-SEC-01: Security & Privacy
+        data.answered ? {
           id: "NFR-SEC-01",
           title: "Data Privacy, PII Protection & Storage Security",
           category: "Security & Privacy",
-          description: "All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with role-based access control (RBAC) compliant with GDPR and CCPA.",
+          description: `All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with RBAC compliant with GDPR/CCPA based on data pipeline: ${data.text}.`,
           metric: "Encryption Standard & Access Audit",
           targetThreshold: "AES-256 at rest, TLS 1.3 in transit, 100% audit logging",
           priority: "Critical",
           status: "RESOLVED",
           sourceStatement: "We have past resumes and hiring decisions...",
-          clarificationReference: "Security Baseline Specification",
+          clarificationReference: `Clarification #${data.clarificationId}: "${data.text}"`,
           verificationMethod: "Automated SAST/DAST Security Scan"
+        } : {
+          id: "NFR-SEC-01",
+          title: "Data Privacy & Security (Unresolved)",
+          category: "Security & Privacy",
+          description: "Data encryption standard and PII retention policy pending stakeholder input.",
+          metric: "Unquantified",
+          targetThreshold: "Unspecified - Awaiting Stakeholder Clarification",
+          priority: "Critical",
+          status: "PENDING_CLARIFICATION",
+          sourceStatement: "We have past resumes and hiring decisions...",
+          ambiguityFlags: ["Data security and encryption standard unresolved"]
         },
 
         // NFR-SCOPE-01: Scope & Timeline

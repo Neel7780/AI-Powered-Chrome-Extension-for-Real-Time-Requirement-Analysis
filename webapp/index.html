@@ -42,9 +42,15 @@
       </div>
 
       <div class="nav-right">
+        <!-- AI Engine Indicator -->
+        <div class="ai-engine-badge" id="ai-engine-badge" title="AI Model Status">
+          <span class="ai-dot active"></span>
+          <span id="ai-engine-label">Gemini 2.5 Flash</span>
+        </div>
+
         <div class="system-status-pill online" id="server-status-pill">
           <span class="status-dot"></span>
-          <span id="server-status-label">Backend Connected</span>
+          <span id="server-status-label">Backend Online</span>
         </div>
 
         <!-- Export Dropdown -->
@@ -186,6 +192,18 @@
 
         <!-- VIEW A: Clarification Q&A Hub -->
         <div class="view-pane active" id="view-clarifications">
+          <!-- Real-Time Clarification Progress Bar -->
+          <div class="clarification-progress-card" id="clarification-progress-card">
+            <div class="progress-info-row">
+              <span class="progress-title">Requirement Clarification Progress</span>
+              <span class="progress-stats" id="clarify-progress-label">0 / 0 Resolved (0%)</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="clarify-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="progress-sub" id="clarify-pending-sub">0 requirements pending stakeholder clarification</div>
+          </div>
+
           <div class="clarification-hub-header">
             <div class="hub-info">
               <h3>Targeted Clarification Questions</h3>

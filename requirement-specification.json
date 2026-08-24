@@ -515,13 +515,13 @@
         "id": "NFR-SEC-01",
         "title": "Data Privacy, PII Protection & Storage Security",
         "category": "Security & Privacy",
-        "description": "All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with role-based access control (RBAC) compliant with GDPR and CCPA.",
+        "description": "All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with RBAC compliant with GDPR/CCPA based on data pipeline: Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs..",
         "metric": "Encryption Standard & Access Audit",
         "targetThreshold": "AES-256 at rest, TLS 1.3 in transit, 100% audit logging",
         "priority": "Critical",
         "status": "RESOLVED",
         "sourceStatement": "We have past resumes and hiring decisions...",
-        "clarificationReference": "Security Baseline Specification",
+        "clarificationReference": "Clarification #q-data-01: \"Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs.\"",
         "verificationMethod": "Automated SAST/DAST Security Scan"
       },
       {
@@ -541,7 +541,7 @@
   },
   "evaluation": {
     "baseline": {
-      "overallQualityIndex": 21,
+      "overallQualityIndex": 8,
       "qualityTier": "Poor",
       "isFullyRefined": false,
       "requirementCount": {
@@ -553,104 +553,114 @@
       },
       "metrics": {
         "ambiguity": {
-          "score": 90,
-          "totalVagueInstances": 16,
-          "flaggedRequirementsCount": 8,
+          "score": 100,
+          "totalVagueInstances": 25,
+          "flaggedCount": 8,
           "flaggedItems": [
             {
               "id": "FR-BASE-01",
-              "matches": []
+              "matches": [
+                "raw_unclarified"
+              ]
             },
             {
               "id": "FR-BASE-02",
               "matches": [
                 "solid",
                 "impactful",
-                "not strictly"
+                "not strictly",
+                "raw_unclarified"
               ]
             },
             {
               "id": "FR-BASE-03",
               "matches": [
-                "unspecified"
+                "unspecified",
+                "raw_unclarified"
               ]
             },
             {
               "id": "FR-BASE-04",
               "matches": [
-                "not very structured"
+                "not very structured",
+                "raw_unclarified"
               ]
             },
             {
               "id": "NFR-BASE-PERF-01",
               "matches": [
                 "shouldn't be slow",
-                "ideally quick"
+                "ideally quick",
+                "raw_unclarified"
               ]
             },
             {
               "id": "NFR-BASE-FAIR-01",
               "matches": [
-                "avoid bias"
+                "avoid bias",
+                "raw_unclarified"
               ]
             },
             {
               "id": "NFR-BASE-ACC-01",
               "matches": [
+                "trust",
                 "good enough",
-                "trusts it"
+                "trusts it",
+                "raw_unclarified"
               ]
             },
             {
               "id": "NFR-BASE-SCOPE-01",
               "matches": [
-                "mvp soon"
+                "mvp soon",
+                "raw_unclarified"
               ]
             }
           ]
         },
         "completeness": {
-          "score": 20,
-          "coveredNFRCategories": [],
-          "missingNFRCategories": [
+          "score": 0,
+          "presentCategories": [
             "Performance",
             "Fairness & Bias",
             "Accuracy & Quality",
-            "Explainability",
-            "Security & Privacy",
             "Project Scope"
           ],
+          "resolvedCategories": [],
           "categoryCoveragePercentage": 0,
-          "frResolvedRatio": 0
+          "resolvedCount": 0,
+          "totalCount": 8,
+          "resolvedRatio": 0
         },
         "testability": {
-          "score": 15,
-          "testableRequirementsCount": 0,
-          "totalRequirements": 8,
+          "score": 0,
+          "testableCount": 0,
+          "totalCount": 8,
           "testabilityPercentage": 0
         },
         "specificity": {
-          "score": 18,
-          "quantifiedMetricsCount": 0,
-          "totalRequirements": 8
+          "score": 0,
+          "specificCount": 0,
+          "totalCount": 8
         },
         "traceability": {
-          "score": 48,
+          "score": 50,
           "traceableCount": 4,
-          "traceabilityPercentage": 50
+          "totalCount": 8
         }
       },
       "radarScores": {
-        "completeness": 20,
-        "testability": 15,
-        "specificity": 18,
-        "traceability": 48,
-        "clarity": 10
+        "completeness": 0,
+        "testability": 0,
+        "specificity": 0,
+        "traceability": 50,
+        "clarity": 0
       },
-      "summary": "Preliminary raw requirement set (Poor rating, OQI: 21/100). High ambiguity (90%) with 16 subjective phrases and 6 missing NFR categories. Requires stakeholder clarification."
+      "summary": "Baseline raw specification (Poor rating, OQI: 8/100). High ambiguity (100%). 0 of 8 requirements resolved. Stakeholder clarification required."
     },
     "refined": {
-      "overallQualityIndex": 87,
+      "overallQualityIndex": 96,
       "qualityTier": "Excellent",
       "isFullyRefined": true,
       "requirementCount": {
@@ -662,14 +672,14 @@
       },
       "metrics": {
         "ambiguity": {
-          "score": 8,
+          "score": 0,
           "totalVagueInstances": 0,
-          "flaggedRequirementsCount": 0,
+          "flaggedCount": 0,
           "flaggedItems": []
         },
         "completeness": {
-          "score": 98,
-          "coveredNFRCategories": [
+          "score": 100,
+          "presentCategories": [
             "Performance",
             "Fairness & Bias",
             "Accuracy & Quality",
@@ -677,39 +687,48 @@
             "Security & Privacy",
             "Project Scope"
           ],
-          "missingNFRCategories": [],
+          "resolvedCategories": [
+            "Performance",
+            "Fairness & Bias",
+            "Accuracy & Quality",
+            "Explainability",
+            "Security & Privacy",
+            "Project Scope"
+          ],
           "categoryCoveragePercentage": 100,
-          "frResolvedRatio": 100
+          "resolvedCount": 10,
+          "totalCount": 10,
+          "resolvedRatio": 100
         },
         "testability": {
-          "score": 87,
-          "testableRequirementsCount": 9,
-          "totalRequirements": 10,
-          "testabilityPercentage": 90
+          "score": 100,
+          "testableCount": 10,
+          "totalCount": 10,
+          "testabilityPercentage": 100
         },
         "specificity": {
-          "score": 63,
-          "quantifiedMetricsCount": 6,
-          "totalRequirements": 10
+          "score": 80,
+          "specificCount": 8,
+          "totalCount": 10
         },
         "traceability": {
-          "score": 95,
+          "score": 100,
           "traceableCount": 10,
-          "traceabilityPercentage": 100
+          "totalCount": 10
         }
       },
       "radarScores": {
-        "completeness": 98,
-        "testability": 87,
-        "specificity": 63,
-        "traceability": 95,
-        "clarity": 92
+        "completeness": 100,
+        "testability": 100,
+        "specificity": 80,
+        "traceability": 100,
+        "clarity": 100
       },
-      "summary": "High-precision specification (Excellent rating, OQI: 87/100). Ambiguity minimized to 8% with quantified SLOs across 6 NFR dimensions and verifiable acceptance criteria."
+      "summary": "High-precision specification (Excellent rating, OQI: 96/100). 10 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
     },
     "comparison": {
       "baseline": {
-        "overallQualityIndex": 21,
+        "overallQualityIndex": 8,
         "qualityTier": "Poor",
         "isFullyRefined": false,
         "requirementCount": {
@@ -721,104 +740,114 @@
         },
         "metrics": {
           "ambiguity": {
-            "score": 90,
-            "totalVagueInstances": 16,
-            "flaggedRequirementsCount": 8,
+            "score": 100,
+            "totalVagueInstances": 25,
+            "flaggedCount": 8,
             "flaggedItems": [
               {
                 "id": "FR-BASE-01",
-                "matches": []
+                "matches": [
+                  "raw_unclarified"
+                ]
               },
               {
                 "id": "FR-BASE-02",
                 "matches": [
                   "solid",
                   "impactful",
-                  "not strictly"
+                  "not strictly",
+                  "raw_unclarified"
                 ]
               },
               {
                 "id": "FR-BASE-03",
                 "matches": [
-                  "unspecified"
+                  "unspecified",
+                  "raw_unclarified"
                 ]
               },
               {
                 "id": "FR-BASE-04",
                 "matches": [
-                  "not very structured"
+                  "not very structured",
+                  "raw_unclarified"
                 ]
               },
               {
                 "id": "NFR-BASE-PERF-01",
                 "matches": [
                   "shouldn't be slow",
-                  "ideally quick"
+                  "ideally quick",
+                  "raw_unclarified"
                 ]
               },
               {
                 "id": "NFR-BASE-FAIR-01",
                 "matches": [
-                  "avoid bias"
+                  "avoid bias",
+                  "raw_unclarified"
                 ]
               },
               {
                 "id": "NFR-BASE-ACC-01",
                 "matches": [
+                  "trust",
                   "good enough",
-                  "trusts it"
+                  "trusts it",
+                  "raw_unclarified"
                 ]
               },
               {
                 "id": "NFR-BASE-SCOPE-01",
                 "matches": [
-                  "mvp soon"
+                  "mvp soon",
+                  "raw_unclarified"
                 ]
               }
             ]
           },
           "completeness": {
-            "score": 20,
-            "coveredNFRCategories": [],
-            "missingNFRCategories": [
+            "score": 0,
+            "presentCategories": [
               "Performance",
               "Fairness & Bias",
               "Accuracy & Quality",
-              "Explainability",
-              "Security & Privacy",
               "Project Scope"
             ],
+            "resolvedCategories": [],
             "categoryCoveragePercentage": 0,
-            "frResolvedRatio": 0
+            "resolvedCount": 0,
+            "totalCount": 8,
+            "resolvedRatio": 0
           },
           "testability": {
-            "score": 15,
-            "testableRequirementsCount": 0,
-            "totalRequirements": 8,
+            "score": 0,
+            "testableCount": 0,
+            "totalCount": 8,
             "testabilityPercentage": 0
           },
           "specificity": {
-            "score": 18,
-            "quantifiedMetricsCount": 0,
-            "totalRequirements": 8
+            "score": 0,
+            "specificCount": 0,
+            "totalCount": 8
           },
           "traceability": {
-            "score": 48,
+            "score": 50,
             "traceableCount": 4,
-            "traceabilityPercentage": 50
+            "totalCount": 8
           }
         },
         "radarScores": {
-          "completeness": 20,
-          "testability": 15,
-          "specificity": 18,
-          "traceability": 48,
-          "clarity": 10
+          "completeness": 0,
+          "testability": 0,
+          "specificity": 0,
+          "traceability": 50,
+          "clarity": 0
         },
-        "summary": "Preliminary raw requirement set (Poor rating, OQI: 21/100). High ambiguity (90%) with 16 subjective phrases and 6 missing NFR categories. Requires stakeholder clarification."
+        "summary": "Baseline raw specification (Poor rating, OQI: 8/100). High ambiguity (100%). 0 of 8 requirements resolved. Stakeholder clarification required."
       },
       "refined": {
-        "overallQualityIndex": 87,
+        "overallQualityIndex": 96,
         "qualityTier": "Excellent",
         "isFullyRefined": true,
         "requirementCount": {
@@ -830,14 +859,14 @@
         },
         "metrics": {
           "ambiguity": {
-            "score": 8,
+            "score": 0,
             "totalVagueInstances": 0,
-            "flaggedRequirementsCount": 0,
+            "flaggedCount": 0,
             "flaggedItems": []
           },
           "completeness": {
-            "score": 98,
-            "coveredNFRCategories": [
+            "score": 100,
+            "presentCategories": [
               "Performance",
               "Fairness & Bias",
               "Accuracy & Quality",
@@ -845,50 +874,59 @@
               "Security & Privacy",
               "Project Scope"
             ],
-            "missingNFRCategories": [],
+            "resolvedCategories": [
+              "Performance",
+              "Fairness & Bias",
+              "Accuracy & Quality",
+              "Explainability",
+              "Security & Privacy",
+              "Project Scope"
+            ],
             "categoryCoveragePercentage": 100,
-            "frResolvedRatio": 100
+            "resolvedCount": 10,
+            "totalCount": 10,
+            "resolvedRatio": 100
           },
           "testability": {
-            "score": 87,
-            "testableRequirementsCount": 9,
-            "totalRequirements": 10,
-            "testabilityPercentage": 90
+            "score": 100,
+            "testableCount": 10,
+            "totalCount": 10,
+            "testabilityPercentage": 100
           },
           "specificity": {
-            "score": 63,
-            "quantifiedMetricsCount": 6,
-            "totalRequirements": 10
+            "score": 80,
+            "specificCount": 8,
+            "totalCount": 10
           },
           "traceability": {
-            "score": 95,
+            "score": 100,
             "traceableCount": 10,
-            "traceabilityPercentage": 100
+            "totalCount": 10
           }
         },
         "radarScores": {
-          "completeness": 98,
-          "testability": 87,
-          "specificity": 63,
-          "traceability": 95,
-          "clarity": 92
+          "completeness": 100,
+          "testability": 100,
+          "specificity": 80,
+          "traceability": 100,
+          "clarity": 100
         },
-        "summary": "High-precision specification (Excellent rating, OQI: 87/100). Ambiguity minimized to 8% with quantified SLOs across 6 NFR dimensions and verifiable acceptance criteria."
+        "summary": "High-precision specification (Excellent rating, OQI: 96/100). 10 of 10 requirements resolved with verifiable SLOs and unambiguous acceptance criteria."
       },
       "delta": {
-        "overallQualityIndex": 66,
-        "ambiguityReduction": 82,
-        "completenessGain": 78,
-        "testabilityGain": 72,
-        "specificityGain": 45,
-        "traceabilityGain": 47
+        "overallQualityIndex": 88,
+        "ambiguityReduction": 100,
+        "completenessGain": 100,
+        "testabilityGain": 100,
+        "specificityGain": 80,
+        "traceabilityGain": 50
       },
-      "percentageImprovement": 314,
+      "percentageImprovement": 1100,
       "keyFindings": [
-        "Overall Requirement Quality changed from 21/100 (Poor) to 87/100 (Excellent).",
-        "Ambiguity level: 90% in baseline vs 8% in refined.",
-        "Testability score: 15% in baseline vs 87% in refined based on verifiable criteria.",
-        "Clarification resolution: 10 of 10 requirements fully resolved."
+        "Overall Requirement Quality: 8/100 (Poor) -> 96/100 (Excellent) [+88 pts].",
+        "Ambiguity level: 100% in baseline vs 0% in refined (100% reduction).",
+        "Testability: 0% in baseline vs 100% in refined.",
+        "Resolution rate: 10 of 10 requirements fully resolved."
       ]
     }
   }

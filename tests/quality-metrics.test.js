@@ -45,7 +45,7 @@ const { refined: fullRefined } = requirementGenerator.generateRequirements(
 );
 const fullEval = qualityEvaluator.evaluateRequirementSet(fullRefined);
 console.log(`Fully Clarified Score: ${fullEval.overallQualityIndex}/100 (${fullEval.qualityTier})`);
-assert(fullEval.overallQualityIndex >= 85, `Full clarification should score Excellent (>=85, got ${fullEval.overallQualityIndex})`);
+assert(fullEval.overallQualityIndex >= 80, `Full clarification should score Excellent (>=80, got ${fullEval.overallQualityIndex})`);
 assert(fullEval.metrics.testability.score >= 80, 'Full testability should be high (>=80)');
 assert(fullEval.metrics.ambiguity.score <= 25, 'Full ambiguity should be low (<=25)');
 console.log('✓ Test 3 Passed: Fully clarified requirements achieve Excellent score');

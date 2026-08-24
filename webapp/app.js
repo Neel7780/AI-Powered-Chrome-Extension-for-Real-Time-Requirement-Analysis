@@ -326,6 +326,19 @@ function renderClarificationsHub() {
   const tabCount = document.getElementById('count-clarify-tab');
   tabCount.innerText = activeClarifications.length;
 
+  const total = activeClarifications.length;
+  const answered = activeClarifications.filter(c => c.selectedResponse && c.selectedResponse.trim().length > 0).length;
+  const pending = total - answered;
+  const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+
+  // Update Progress Meter
+  const progressLabel = document.getElementById('clarify-progress-label');
+  const progressBar = document.getElementById('clarify-progress-bar');
+  const pendingSub = document.getElementById('clarify-pending-sub');
+  if (progressLabel) progressLabel.innerText = `${answered} / ${total} Resolved (${pct}%)`;
+  if (progressBar) progressBar.style.width = `${pct}%`;
+  if (pendingSub) pendingSub.innerText = `${pending} requirements still pending stakeholder clarification`;
+
   if (activeClarifications.length === 0) {
     container.innerHTML = `
       <div class="empty-clarify-state">
@@ -338,7 +351,7 @@ function renderClarificationsHub() {
   }
 
   container.innerHTML = activeClarifications.map((c, idx) => {
-    const isAnswered = !!c.selectedResponse;
+    const isAnswered = !!(c.selectedResponse && c.selectedResponse.trim().length > 0);
     const options = c.suggestedOptions || c.options || [];
 
     return `
@@ -346,13 +359,16 @@ function renderClarificationsHub() {
         <div class="c-header">
           <span class="c-tag">${c.category || 'Clarification'}</span>
           <span class="c-status ${isAnswered ? 'clarified' : 'pending'}">
-            ${isAnswered ? '✓ Clarified' : '● Needs Stakeholder Input'}
+            ${isAnswered ? '✓ Clarified by Stakeholder' : '● Needs Stakeholder Input'}
           </span>
         </div>
         <div class="c-question">${c.question}</div>
-        ${c.triggeredBy ? `<div class="c-trigger">Triggered by: "${c.triggeredBy}"</div>` : ''}
+        ${c.triggeredBy ? `<div class="c-trigger">Triggered by statement: "${c.triggeredBy}"</div>` : ''}
 
         <div class="c-options-stack">
+          <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px; font-weight: 600;">
+            AI SUGGESTED METRICS (Click to adopt as stakeholder decision):
+          </div>
           ${options.map(opt => {
             const isSelected = c.selectedResponse === opt ? 'selected' : '';
             return `
@@ -363,7 +379,7 @@ function renderClarificationsHub() {
           }).join('')}
         </div>
 
-        <input type="text" class="c-custom-input" placeholder="Or enter custom stakeholder clarification..." value="${c.selectedResponse || ''}" data-idx="${idx}" />
+        <input type="text" class="c-custom-input" placeholder="Or type custom stakeholder specification..." value="${c.selectedResponse || ''}" data-idx="${idx}" />
       </div>
     `;
   }).join('');

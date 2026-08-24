@@ -1,7 +1,10 @@
 /**
  * Dynamic Requirement Engineering Quality Evaluation Engine
- * Evaluates requirements purely based on actual content, verifiable criteria,
- * resolved statuses, and coverage of NFR dimensions (ISO/IEC/IEEE 29148).
+ * Uses pure mathematical ratios (0-100%) without artificial floors or caps.
+ * 
+ * Hybrid Architecture:
+ * - Gemini performs contextual dialogue analysis and requirement refinement.
+ * - Deterministic rule-based metrics provide reproducible, verifiable quality evaluation.
  */
 
 class QualityEvaluator {
@@ -19,37 +22,47 @@ class QualityEvaluator {
       return this.getEmptyEvaluation();
     }
 
+    const totalCount = allReqs.length;
+    const resolvedCount = allReqs.filter(r => r.status === 'RESOLVED').length;
+    const pendingCount = totalCount - resolvedCount;
+
     // 1. Ambiguity Metric (0 - 100, Lower is Better)
+    // Percentage of requirements that contain unresolved ambiguities or are pending clarification
     const ambiguityMetrics = this.calculateAmbiguity(allReqs);
 
     // 2. Completeness Metric (0 - 100, Higher is Better)
+    // Percentage of identified requirement dimensions that have been fully resolved
     const completenessMetrics = this.calculateCompleteness(frs, nfrs);
 
     // 3. Verifiability / Testability Metric (0 - 100, Higher is Better)
+    // Percentage of requirements with objective, testable acceptance criteria or quantified metrics
     const testabilityMetrics = this.calculateTestability(allReqs);
 
     // 4. Specificity / Measurability Metric (0 - 100, Higher is Better)
+    // Percentage of requirements containing explicit numbers, units, or schemas (excluding "Unspecified")
     const specificityMetrics = this.calculateSpecificity(allReqs);
 
-    // 5. Traceability & Structure Metric (0 - 100, Higher is Better)
+    // 5. Traceability Metric (0 - 100, Higher is Better)
+    // Percentage of requirements with explicit traceability back to stakeholder statements or clarifications
     const traceabilityMetrics = this.calculateTraceability(allReqs);
 
     // 6. Overall Quality Index (OQI) - Weighted composite score
-    // Weightings: Completeness (25%), Verifiability (25%), Specificity (20%), Traceability (15%), Unambiguity (15%)
-    const unambiguityScore = 100 - ambiguityMetrics.score;
+    // Pure arithmetic weighted average (0 - 100)
+    // Weights: Completeness (25%), Verifiability (25%), Specificity (20%), Traceability (15%), Clarity/Unambiguity (15%)
+    const clarityScore = Math.max(0, 100 - ambiguityMetrics.score);
     const overallQualityIndex = Math.round(
       (0.25 * completenessMetrics.score) +
       (0.25 * testabilityMetrics.score) +
       (0.20 * specificityMetrics.score) +
       (0.15 * traceabilityMetrics.score) +
-      (0.15 * unambiguityScore)
+      (0.15 * clarityScore)
     );
 
-    // Quality Rating Category
+    // Quality Rating Tier
     let qualityTier = 'Poor';
-    if (overallQualityIndex >= 85) qualityTier = 'Excellent';
-    else if (overallQualityIndex >= 70) qualityTier = 'Good';
-    else if (overallQualityIndex >= 50) qualityTier = 'Moderate';
+    if (overallQualityIndex >= 80) qualityTier = 'Excellent';
+    else if (overallQualityIndex >= 60) qualityTier = 'Good';
+    else if (overallQualityIndex >= 40) qualityTier = 'Moderate';
 
     const isFullyRefined = overallQualityIndex >= 80;
 
@@ -58,11 +71,11 @@ class QualityEvaluator {
       qualityTier,
       isFullyRefined,
       requirementCount: {
-        total: allReqs.length,
+        total: totalCount,
         frCount: frs.length,
         nfrCount: nfrs.length,
-        resolvedCount: allReqs.filter(r => r.status === 'RESOLVED').length,
-        pendingCount: allReqs.filter(r => r.status === 'PENDING_CLARIFICATION' || r.status === 'RAW_UNCLARIFIED').length
+        resolvedCount,
+        pendingCount
       },
       metrics: {
         ambiguity: ambiguityMetrics,
@@ -76,9 +89,9 @@ class QualityEvaluator {
         testability: testabilityMetrics.score,
         specificity: specificityMetrics.score,
         traceability: traceabilityMetrics.score,
-        clarity: unambiguityScore
+        clarity: clarityScore
       },
-      summary: this.generateQualitySummary(overallQualityIndex, qualityTier, ambiguityMetrics, completenessMetrics)
+      summary: this.generateQualitySummary(overallQualityIndex, qualityTier, ambiguityMetrics, completenessMetrics, resolvedCount, totalCount)
     };
   }
 
@@ -105,25 +118,29 @@ class QualityEvaluator {
       delta,
       percentageImprovement,
       keyFindings: [
-        `Overall Requirement Quality changed from ${baselineEval.overallQualityIndex}/100 (${baselineEval.qualityTier}) to ${refinedEval.overallQualityIndex}/100 (${refinedEval.qualityTier}).`,
-        `Ambiguity level: ${baselineEval.metrics.ambiguity.score}% in baseline vs ${refinedEval.metrics.ambiguity.score}% in refined.`,
-        `Testability score: ${baselineEval.metrics.testability.score}% in baseline vs ${refinedEval.metrics.testability.score}% in refined based on verifiable criteria.`,
-        `Clarification resolution: ${refinedEval.requirementCount.resolvedCount} of ${refinedEval.requirementCount.total} requirements fully resolved.`
+        `Overall Requirement Quality: ${baselineEval.overallQualityIndex}/100 (${baselineEval.qualityTier}) -> ${refinedEval.overallQualityIndex}/100 (${refinedEval.qualityTier}) [${delta.overallQualityIndex > 0 ? '+' : ''}${delta.overallQualityIndex} pts].`,
+        `Ambiguity level: ${baselineEval.metrics.ambiguity.score}% in baseline vs ${refinedEval.metrics.ambiguity.score}% in refined (${delta.ambiguityReduction}% reduction).`,
+        `Testability: ${baselineEval.metrics.testability.score}% in baseline vs ${refinedEval.metrics.testability.score}% in refined.`,
+        `Resolution rate: ${refinedEval.requirementCount.resolvedCount} of ${refinedEval.requirementCount.total} requirements fully resolved.`
       ]
     };
   }
 
-  // --- Internal Metric Calculators ---
+  // --- Pure Ratio Metric Calculators (No artificial floors/caps) ---
 
   calculateAmbiguity(requirements) {
-    const vagueTerms = /\b(good enough|trusts it|solid|impactful|strong|not strictly|not very structured|useful|avoid bias|shouldn'?t be slow|ideally quick|mvp soon|unspecified|pending clarification)\b/gi;
+    if (requirements.length === 0) return { score: 0, totalVagueInstances: 0, flaggedCount: 0, flaggedItems: [] };
+
+    const vagueRegex = /\b(good enough|trusts it|trust|solid|impactful|strong|not strictly|not very structured|useful|avoid bias|shouldn'?t be slow|ideally quick|mvp soon|unspecified|pending clarification|raw_unclarified)\b/gi;
     let totalMatches = 0;
     const flaggedItems = [];
 
     requirements.forEach(req => {
-      const fullText = `${req.title || ''} ${req.description || ''} ${JSON.stringify(req.ambiguityFlags || '')} ${req.targetThreshold || ''}`;
-      const matches = fullText.match(vagueTerms) || [];
-      if (matches.length > 0 || req.status === 'PENDING_CLARIFICATION' || req.status === 'RAW_UNCLARIFIED') {
+      const fullText = `${req.title || ''} ${req.description || ''} ${JSON.stringify(req.ambiguityFlags || '')} ${req.targetThreshold || ''} ${req.status || ''}`;
+      const matches = fullText.match(vagueRegex) || [];
+      const isUnresolved = req.status === 'PENDING_CLARIFICATION' || req.status === 'RAW_UNCLARIFIED' || (req.ambiguityFlags && req.ambiguityFlags.length > 0);
+      
+      if (matches.length > 0 || isUnresolved) {
         totalMatches += Math.max(1, matches.length);
         flaggedItems.push({
           id: req.id,
@@ -132,122 +149,138 @@ class QualityEvaluator {
       }
     });
 
-    const ratio = requirements.length > 0 ? flaggedItems.length / requirements.length : 0;
-    const score = Math.min(95, Math.max(8, Math.round(ratio * 75 + (totalMatches > 5 ? 15 : 0))));
+    // Pure mathematical ratio of flagged requirements to total requirements
+    const ratio = flaggedItems.length / requirements.length;
+    const score = Math.round(ratio * 100);
 
     return {
       score, // 0 - 100 (Lower is Better)
       totalVagueInstances: totalMatches,
-      flaggedRequirementsCount: flaggedItems.length,
+      flaggedCount: flaggedItems.length,
       flaggedItems
     };
   }
 
   calculateCompleteness(frs, nfrs) {
-    const requiredNFRCategories = [
-      'Performance',
-      'Fairness & Bias',
-      'Accuracy & Quality',
-      'Explainability',
-      'Security & Privacy',
-      'Project Scope'
-    ];
+    const allReqs = [...frs, ...nfrs];
+    if (allReqs.length === 0) return { score: 0, resolvedRatio: 0, categoryCoveragePercentage: 0 };
 
-    // Count categories that have at least one RESOLVED requirement
-    const resolvedNfrs = nfrs.filter(n => n.status === 'RESOLVED');
-    const presentCategories = new Set(resolvedNfrs.map(n => n.category));
-    const coveredCategories = requiredNFRCategories.filter(cat => 
-      Array.from(presentCategories).some(p => p && p.toLowerCase().includes(cat.split(' ')[0].toLowerCase()))
-    );
+    // 1. Requirement Resolution Ratio: (Resolved Requirements / Total Requirements)
+    const resolvedReqs = allReqs.filter(r => r.status === 'RESOLVED');
+    const resolutionRatio = resolvedReqs.length / allReqs.length;
 
-    const categoryCoverageRatio = coveredCategories.length / requiredNFRCategories.length;
-    
-    // Check for acceptance criteria presence in resolved FRs
-    const resolvedFrs = frs.filter(f => f.status === 'RESOLVED');
-    const frCriteriaRatio = frs.length > 0 ? (resolvedFrs.length / frs.length) : 0;
+    // 2. Dynamic Relevant NFR Dimension Coverage:
+    // Identify all unique NFR categories present in this specific project
+    const presentCategories = Array.from(new Set(nfrs.map(n => n.category).filter(Boolean)));
+    const resolvedCategories = Array.from(new Set(
+      nfrs.filter(n => n.status === 'RESOLVED').map(n => n.category).filter(Boolean)
+    ));
 
-    const score = Math.min(98, Math.max(20, Math.round((categoryCoverageRatio * 55) + (frCriteriaRatio * 35) + (resolvedNfrs.length > 0 ? 8 : 0))));
+    const categoryCoverageRatio = presentCategories.length > 0
+      ? resolvedCategories.length / presentCategories.length
+      : resolutionRatio;
+
+    // Pure weighted average: 60% requirement resolution ratio + 40% relevant category coverage ratio
+    const score = Math.round((0.60 * resolutionRatio + 0.40 * categoryCoverageRatio) * 100);
 
     return {
-      score,
-      coveredNFRCategories: coveredCategories,
-      missingNFRCategories: requiredNFRCategories.filter(c => !coveredCategories.includes(c)),
+      score, // 0 - 100
+      presentCategories,
+      resolvedCategories,
       categoryCoveragePercentage: Math.round(categoryCoverageRatio * 100),
-      frResolvedRatio: Math.round(frCriteriaRatio * 100)
+      resolvedCount: resolvedReqs.length,
+      totalCount: allReqs.length,
+      resolvedRatio: Math.round(resolutionRatio * 100)
     };
   }
 
   calculateTestability(requirements) {
-    // Looks for verifiable indicators: numbers, units (< 1.5s, 85%, DIR 0.8-1.25, JSON schema, Gherkin given-when-then)
-    const verifiableRegex = /(\b\d+(\.\d+)?\s*(ms|s|seconds|%|MB|GB|TPS|NDCG|F1|DIR)\b|[<>]=?|\b(disparate impact|sha-256|aes-256|json schema|given|when|then)\b)/i;
+    if (requirements.length === 0) return { score: 0, testableCount: 0, totalCount: 0, testabilityPercentage: 0 };
+
+    // Testable indicators: explicit numbers, units (< 1.5s, 85%, DIR 0.80, 200ms, 10MB), Gherkin Given-When-Then criteria
+    const testablePattern = /(\b\d+(\.\d+)?\s*(ms|s|seconds|%|MB|GB|TPS|NDCG|F1|DIR|weeks|months)\b|[<>]=?|\b(disparate impact|sha-256|aes-256|tls 1\.3|json schema|given|when|then)\b)/i;
     
-    let verifiableCount = 0;
+    let testableCount = 0;
     requirements.forEach(req => {
       const fullText = `${req.description || ''} ${JSON.stringify(req.acceptanceCriteria || '')} ${req.metric || ''} ${req.targetThreshold || ''}`;
-      if (req.status === 'RESOLVED' && verifiableRegex.test(fullText) && !/unspecified|pending/i.test(req.targetThreshold || '')) {
-        verifiableCount++;
+      const isResolved = req.status === 'RESOLVED';
+      const isExplicitlyUnspecified = /unspecified|pending clarification|raw_unclarified/i.test(req.targetThreshold || '') || /pending/i.test(req.status || '');
+
+      if (isResolved && !isExplicitlyUnspecified && testablePattern.test(fullText)) {
+        testableCount++;
       }
     });
 
-    const testableRatio = requirements.length > 0 ? verifiableCount / requirements.length : 0;
-    const score = Math.min(96, Math.max(15, Math.round(testableRatio * 85 + (verifiableCount >= 4 ? 10 : 0))));
+    // Pure mathematical ratio: (testable / total) * 100
+    const ratio = testableCount / requirements.length;
+    const score = Math.round(ratio * 100);
 
     return {
-      score,
-      testableRequirementsCount: verifiableCount,
-      totalRequirements: requirements.length,
-      testabilityPercentage: Math.round(testableRatio * 100)
+      score, // 0 - 100
+      testableCount,
+      totalCount: requirements.length,
+      testabilityPercentage: score
     };
   }
 
   calculateSpecificity(requirements) {
+    if (requirements.length === 0) return { score: 0, specificCount: 0, totalCount: 0 };
+
     let specificCount = 0;
     requirements.forEach(req => {
       const threshold = req.targetThreshold || '';
-      if (req.status === 'RESOLVED' && threshold && !/unspecified|pending|undefined/i.test(threshold)) {
+      const isResolved = req.status === 'RESOLVED';
+      const isUnspecified = /unspecified|pending|raw_unclarified|undefined/i.test(threshold);
+
+      if (isResolved && threshold.trim().length > 0 && !isUnspecified) {
+        specificCount++;
+      } else if (isResolved && req.acceptanceCriteria && req.acceptanceCriteria.length >= 2) {
+        // FRs with multi-step concrete Gherkin criteria also count towards specificity
         specificCount++;
       }
     });
 
-    const ratio = requirements.length > 0 ? specificCount / requirements.length : 0;
-    const score = Math.min(95, Math.max(18, Math.round(ratio * 80 + (specificCount >= 4 ? 15 : 0))));
+    // Pure mathematical ratio: (specific / total) * 100
+    const ratio = specificCount / requirements.length;
+    const score = Math.round(ratio * 100);
 
     return {
-      score,
-      quantifiedMetricsCount: specificCount,
-      totalRequirements: requirements.length
+      score, // 0 - 100
+      specificCount,
+      totalCount: requirements.length
     };
   }
 
   calculateTraceability(requirements) {
-    let traceableCount = 0;
+    if (requirements.length === 0) return { score: 0, traceableCount: 0, totalCount: 0 };
+
+    let traceableWeight = 0;
     requirements.forEach(req => {
-      if (req.id && (req.clarificationReference || req.sourceStatement)) {
-        if (req.status === 'RESOLVED' && req.clarificationReference) {
-          traceableCount += 1.0;
-        } else if (req.sourceStatement) {
-          traceableCount += 0.5;
-        }
+      if (req.status === 'RESOLVED' && req.clarificationReference) {
+        traceableWeight += 1.0; // Fully traceable to explicit clarification
+      } else if (req.sourceStatement) {
+        traceableWeight += 0.5; // Partially traceable to raw dialogue quote
       }
     });
 
-    const ratio = requirements.length > 0 ? Math.min(1.0, traceableCount / requirements.length) : 0;
-    const score = Math.min(98, Math.max(25, Math.round(ratio * 95)));
+    // Pure mathematical ratio
+    const ratio = Math.min(1.0, traceableWeight / requirements.length);
+    const score = Math.round(ratio * 100);
 
     return {
-      score,
-      traceableCount: Math.round(traceableCount),
-      traceabilityPercentage: Math.round(ratio * 100)
+      score, // 0 - 100
+      traceableCount: Math.round(traceableWeight),
+      totalCount: requirements.length
     };
   }
 
-  generateQualitySummary(oqi, tier, amb, comp) {
+  generateQualitySummary(oqi, tier, amb, comp, resolved, total) {
     if (oqi >= 80) {
-      return `High-precision specification (${tier} rating, OQI: ${oqi}/100). Ambiguity minimized to ${amb.score}% with quantified SLOs across ${comp.coveredNFRCategories.length} NFR dimensions and verifiable acceptance criteria.`;
-    } else if (oqi >= 50) {
-      return `Partially refined specification (${tier} rating, OQI: ${oqi}/100). Ambiguity at ${amb.score}%. Some clarifications answered, but ${comp.missingNFRCategories.length} NFR dimensions remain pending.`;
+      return `High-precision specification (${tier} rating, OQI: ${oqi}/100). ${resolved} of ${total} requirements resolved with verifiable SLOs and unambiguous acceptance criteria.`;
+    } else if (oqi >= 40) {
+      return `Partially clarified specification (${tier} rating, OQI: ${oqi}/100). ${resolved} of ${total} requirements resolved. ${total - resolved} requirements remain pending stakeholder clarification.`;
     }
-    return `Preliminary raw requirement set (${tier} rating, OQI: ${oqi}/100). High ambiguity (${amb.score}%) with ${amb.totalVagueInstances} subjective phrases and ${comp.missingNFRCategories.length} missing NFR categories. Requires stakeholder clarification.`;
+    return `Baseline raw specification (${tier} rating, OQI: ${oqi}/100). High ambiguity (${amb.score}%). 0 of ${total} requirements resolved. Stakeholder clarification required.`;
   }
 
   getEmptyEvaluation() {
@@ -257,11 +290,11 @@ class QualityEvaluator {
       isFullyRefined: false,
       requirementCount: { total: 0, frCount: 0, nfrCount: 0, resolvedCount: 0, pendingCount: 0 },
       metrics: {
-        ambiguity: { score: 0, totalVagueInstances: 0, flaggedRequirementsCount: 0, flaggedItems: [] },
-        completeness: { score: 0, coveredNFRCategories: [], missingNFRCategories: [], categoryCoveragePercentage: 0, frResolvedRatio: 0 },
-        testability: { score: 0, testableRequirementsCount: 0, totalRequirements: 0, testabilityPercentage: 0 },
-        specificity: { score: 0, quantifiedMetricsCount: 0, totalRequirements: 0 },
-        traceability: { score: 0, traceableCount: 0, traceabilityPercentage: 0 }
+        ambiguity: { score: 0, totalVagueInstances: 0, flaggedCount: 0, flaggedItems: [] },
+        completeness: { score: 0, presentCategories: [], resolvedCategories: [], categoryCoveragePercentage: 0, resolvedRatio: 0 },
+        testability: { score: 0, testableCount: 0, totalCount: 0, testabilityPercentage: 0 },
+        specificity: { score: 0, specificCount: 0, totalCount: 0 },
+        traceability: { score: 0, traceableCount: 0, totalCount: 0 }
       },
       radarScores: { completeness: 0, testability: 0, specificity: 0, traceability: 0, clarity: 0 },
       summary: 'No requirements evaluated.'

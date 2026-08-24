@@ -3,6 +3,7 @@
  * with robust offline rule-based NLP Fallback Engine.
  */
 
+require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const ambiguityDetector = require('./ambiguity-detector');
 const qualityEvaluator = require('./quality-evaluator');

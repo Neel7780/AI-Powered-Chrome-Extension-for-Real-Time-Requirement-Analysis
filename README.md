@@ -2,83 +2,87 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-v20+-green.svg)](https://nodejs.org/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/)
+[![AI Engine](https://img.shields.io/badge/AI_Engine-Gemini_2.5_Flash-orange.svg)](https://deepmind.google/technologies/gemini/)
 [![Standard](https://img.shields.io/badge/Standard-ISO%2FIEC%2FIEEE_29148-purple.svg)](https://standards.ieee.org/)
-[![Tests](https://img.shields.io/badge/Tests-100%25_Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-100%25_Passing_(A--G)-brightgreen.svg)]()
 
-> An end-to-end AI-assisted Requirements Engineering (RE) solution that listens to live Zoom, Google Meet, and Microsoft Teams meeting transcripts, dynamically detects vague or ambiguous stakeholder statements in real time, generates targeted clarification questions, synthesizes formal Functional (FR) and Categorized Non-Functional Requirements (NFR), and evaluates requirement quality before and after clarification.
-
----
-
-## 📌 Problem Statement & Assignment Alignment
-
-In software requirements meetings, stakeholders frequently provide incomplete, subjective, or ambiguous statements (e.g., *"it shouldn't be slow"*, *"it should be good enough so that HR trusts it"*, *"strong fresher"*, *"MVP soon"*). Traditional analysts miss critical opportunities to clarify these requirements live, resulting in untestable, subjective specifications and high project risk.
-
-This project delivers:
-1. **Manifest V3 Chrome Extension**: Real-time transcript listener for Zoom Web Client, Google Meet, and Microsoft Teams, featuring an injected in-meeting HUD, side panel, and quick popup.
-2. **Real-Time NLP & AI Ambiguity Detector**: Instant detection of lexical vagueness, missing operational definitions, untestable criteria, and underspecified NFR constraints.
-3. **Automated Clarification Question Generator**: Contextual, high-yield questions with suggested industry-standard metrics and SLO options.
-4. **Interactive Stakeholder Q&A Interface**: Fast-response interface for stakeholders and analysts to record clarifications in real time.
-5. **Rigorous FR & NFR Extraction Engine**: Formal ISO/IEC/IEEE 29148 requirement synthesis categorized across Performance, Fairness & Bias, Accuracy, Explainability, Security, and Scope.
-6. **Side-by-Side Comparative Quality Evaluation Framework**: Quantifiable metrics comparing requirements generated **Without Clarification** vs. **With Clarification** (Ambiguity, Completeness, Testability, Specificity, Traceability, and Overall Quality Index).
-7. **Multi-Format Export Hub**: One-click generation of professional PDF reports, Word Documents (.docx), Markdown/TXT, and structured JSON.
-8. **Interactive Meeting Simulation Studio & Web Dashboard**: Full standalone application with audio visualizer, playback speed controls, and live microphone speech recognition (Web Speech API).
+> **Software Engineering Take-Home Assignment 2**: An AI-assisted Requirements Engineering platform and Manifest V3 Chrome Extension that listens to live Zoom/Meet transcripts, detects ambiguous stakeholder statements in real time, generates intelligent clarification questions, refines requirements based strictly on stakeholder answers, and evaluates requirement quality using ISO/IEC/IEEE 29148 metrics.
 
 ---
 
-## 🏗️ System Architecture
+## 🏛️ System Architecture
+
+The platform uses a **hybrid architecture**:
+- **Google Gemini 2.5 Flash** (`@google/generative-ai`) performs real-time semantic dialogue analysis, triggers ambiguity flags, and generates high-yield clarification questions.
+- **Deterministic Rule-Based Evaluation Engine** computes reproducible, mathematically verifiable ISO 29148 requirement quality metrics (Ambiguity, Testability, Completeness, Specificity, Traceability) without artificial floors or caps.
+- **Zero-Downtime Offline Fallback**: If network is disconnected or API keys are absent, the system automatically falls back to deterministic local NLP heuristics.
 
 ```mermaid
 flowchart TB
-    subgraph MeetingSource["Live Meeting Audio & Transcripts"]
-        Z[Zoom Web Client DOM]
-        M[Google Meet DOM]
-        T[Microsoft Teams DOM]
+    subgraph LiveMeeting["1. Live Meeting Inputs"]
+        Z[Zoom Web Client Transcripts]
+        M[Google Meet Captions]
+        T[Microsoft Teams Captions]
         MIC[Live Microphone Web Speech API]
         SIM[Meeting Simulation Streamer]
     end
 
-    subgraph ExtensionLayer["Chrome Extension (Manifest V3)"]
-        CS[Content Scripts & DOM Observers]
-        HUD[Injected In-Meeting Floating HUD]
+    subgraph Extension["2. Chrome Extension (Manifest V3)"]
+        CS[Content Scripts & Observers]
+        HUD[In-Meeting Floating Copilot HUD]
         SW[Background Service Worker]
         SP[Side Panel Interface]
         POP[Extension Popup]
     end
 
-    subgraph IntelligenceEngine["Requirement AI Intelligence Engine"]
+    subgraph BackendAI["3. AI & Analysis Engine"]
+        LLM[Google Gemini 2.5 Flash]
+        NLP[Offline Rule-Based NLP Fallback]
         AD[Ambiguity & Vagueness Detector]
         QG[Clarification Question Generator]
-        RE[FR & NFR Extraction Engine]
-        QE[IEEE 830 Quality Evaluator]
     end
 
-    subgraph Outputs["Multi-Format Specification & Exports"]
-        PDF[PDF SRS Report (pdfkit)]
-        DOCX[Word Document (docx)]
-        MD[Markdown / TXT]
-        JSON[Structured JSON for Jira/DevOps]
+    subgraph RefinementEngine["4. Response-Driven Refinement"]
+        SH[Stakeholder Responses Log]
+        RG[Strictly Response-Driven Requirement Generator]
+        FR[Refined Functional Requirements FR]
+        NFR[Categorized Non-Functional Requirements NFR]
     end
 
-    MeetingSource --> CS
-    MeetingSource --> SIM
+    subgraph EvaluationExport["5. Evaluation & Export Hub"]
+        QE[ISO 29148 Dynamic Quality Evaluator]
+        RADAR[Interactive Quality Radar & Delta Matrix]
+        EXP[PDF / DOCX / TXT / JSON Exporters]
+    end
+
+    LiveMeeting --> CS
+    LiveMeeting --> SIM
     CS --> HUD
     CS --> SW
     SW --> SP
     SW --> POP
-    
-    SIM --> IntelligenceEngine
-    SW --> IntelligenceEngine
-    
-    IntelligenceEngine --> AD
+
+    SIM --> BackendAI
+    SW --> BackendAI
+
+    BackendAI --> LLM
+    BackendAI --> NLP
+    LLM --> AD
+    NLP --> AD
     AD --> QG
-    QG --> RE
-    RE --> QE
-    QE --> Outputs
+    QG --> SH
+    SH --> RG
+    RG --> FR
+    RG --> NFR
+    FR --> QE
+    NFR --> QE
+    QE --> RADAR
+    QE --> EXP
 ```
 
 ---
 
-## 📊 Comparative Analysis: Without vs. With Clarification
+## 📊 Comparative Evaluation: Without vs. With Clarification
 
 Based on the assignment conversation (AI-based Resume Analyzer meeting between Hiring Manager and ML Engineer):
 
@@ -94,190 +98,76 @@ Based on the assignment conversation (AI-based Resume Analyzer meeting between H
 | **Data Ingestion FR** | *"We have past resumes... but they're not very structured."* | **FR-01**: Ingest PDF and DOCX formats (up to 10MB), parsing unstructured text into validated JSON schemas with OCR fallback and error codes. | Defined file formats, size boundaries, and data contract. |
 | **Project Scope NFR** | *"We need an MVP soon."* | **NFR-SCOPE-01**: 4-week MVP milestone deliverable covering PDF/DOCX ingestion, JD matching, top-10 ranking, scorecard, and CSV export. | Established concrete deadline and scope checklist. |
 
-### 2. Quality Evaluation Metrics Comparison
+### 2. Pure Mathematical Quality Scorecard
 
-| Quality Dimension | Standard Definition | Without Clarification | With Clarification | Improvement ($\Delta$) |
+| Quality Dimension | Metric Formula | Without Clarification | With Clarification | Improvement ($\Delta$) |
 | :--- | :--- | :---: | :---: | :---: |
-| **Overall Quality Index (OQI)** | Weighted composite quality score (0 - 100) | **30% (Poor)** | **92% (Excellent)** | **+62 pts (+207%)** |
-| **Ambiguity Level** | Frequency of lexical vagueness & fuzzy qualifiers | 78% | 12% | **-66% reduction** |
-| **Testability & Verifiability** | Proportion of requirements with pass/fail criteria | 25% | 92% | **+67% gain** |
-| **Completeness & NFR Coverage** | Coverage of critical NFR dimensions (SLOs, security) | 35% | 94% | **+59% gain** |
-| **Specificity & Measurability** | Presence of numerical thresholds, units, schemas | 30% | 90% | **+60% gain** |
-| **Traceability & Consistency** | Bidirectional mapping to stakeholder statements | 40% | 95% | **+55% gain** |
+| **Overall Quality Index (OQI)** | Weighted composite score ($0 - 100$) | **8% (Poor)** | **96% (Excellent)** | **+88 pts (+1100%)** |
+| **Ambiguity Level** | $(\text{Flagged Unresolved Reqs} / \text{Total}) \times 100$ | 100% | 0% | **-100% reduction** |
+| **Testability & Verifiability** | $(\text{Requirements with Measurable Criteria} / \text{Total}) \times 100$ | 0% | 90% | **+90% gain** |
+| **Completeness Coverage** | $(\text{Resolved Relevant NFRs} / \text{Total Identified Dimensions}) \times 100$ | 0% | 100% | **+100% gain** |
+| **Specificity & SLOs** | $(\text{Requirements with Explicit Non-Empty Thresholds} / \text{Total}) \times 100$ | 0% | 90% | **+90% gain** |
+| **Traceability** | $(\text{Requirements Linked to Stakeholder Answers} / \text{Total}) \times 100$ | 50% | 100% | **+50% gain** |
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) v18 or higher (tested on Node.js v20)
-- Google Chrome browser (for extension and Web Speech API)
-
 ### 1. Installation
-Clone the repository and install dependencies:
 ```bash
-git clone <repo-url>
-cd take-home-2
+git clone https://github.com/Neel7780/AI-Powered-Chrome-Extension-for-Real-Time-Requirement-Analysis.git
+cd AI-Powered-Chrome-Extension-for-Real-Time-Requirement-Analysis
 npm install
 ```
 
-### 2. Run the Test Suite
-Verify that all RE quality evaluators, NLP engines, and document generators pass:
+### 2. Configure Environment
+Create `.env`:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+PORT=3000
+```
+
+### 3. Run Automated Tests
 ```bash
 npm test
 ```
 
-### 3. Start the Server & Web Studio
-Launch the Express backend and Interactive Web Dashboard:
+### 4. Start Server & Web Studio
 ```bash
 npm start
 ```
-Open your browser and navigate to:
-👉 **[http://localhost:3000](http://localhost:3000)**
+Open **[http://localhost:3000](http://localhost:3000)** in Chrome.
 
 ---
 
 ## 🧩 Installing the Chrome Extension
 
-To install the Chrome Extension into Google Chrome:
-
 1. Open Google Chrome and go to `chrome://extensions/`.
-2. Enable **Developer mode** using the toggle in the top-right corner.
-3. Click the **Load unpacked** button in the top-left.
-4. Select the `extension/` directory located inside this repository:
-   `/home/godllike/Desktop/Sem5/SwE/take-home-2/extension`
-5. The **AI Real-Time Requirement Analyzer** extension will now appear in your toolbar!
-
-### Using the Extension:
-- **During a Zoom or Google Meet Call**:
-  - The extension automatically observes live captions/transcripts.
-  - The injected floating **Requirement Copilot HUD** appears in the bottom-right corner of the meeting.
-  - Vague statements are highlighted in red, and real-time clarification questions appear with 1-click answers.
-- **Side Panel**:
-  - Click the extension icon in Chrome or the HUD `⧉` button to open the full **Requirement Side Panel**.
-  - Monitor real-time transcripts, answer clarification questions, view synthesized FRs & NFRs, inspect quality audit charts, and export reports directly.
+2. Enable **Developer mode** (top-right toggle).
+3. Click **Load unpacked** and select the `extension/` directory.
+4. Join any Zoom Web, Google Meet, or Teams meeting to view the live **Requirement Copilot HUD** and **Side Panel**.
 
 ---
 
-## 📂 Repository Structure
+## 🧪 Verified Test Suite (Tests A - G)
 
+```text
+--- Running Quality Hardening Test Suite (Tests A - G) ---
+✓ Test A Passed: 0 answers produce strictly PENDING requirements with genuine 0% testability.
+✓ Test B Passed: Partial answers scale quality score proportionally without arbitrary jumps.
+✓ Test C Passed: Fully answered clarifications achieve Excellent rating with verifiable SLOs.
+✓ Test D Passed: Malformed LLM response gracefully handled by fallback parser.
+✓ Test E Passed: Offline rule engine operated with 0 API keys.
+✓ Test F Passed: Stakeholder specification ("2 seconds") correctly adopted into NFR.
+✓ Test G Passed: Requirement strictly avoided unselected value ("2 seconds") and adopted "Single resume < 500ms real-time".
+
+--- Running AI Service (Gemini / LLM) Integration Tests ---
+Active AI engine: Google Gemini LLM Connected
+✓ Test 1 Passed: Utterance analyzed via gemini-2.5-flash
+✓ Test 2 Passed: Generated contextual clarification question
 ```
-take-home-2/
-├── Take_Home_Assignment_2.pdf    # Assignment Prompt & Sample Conversation
-├── package.json                  # Project dependencies & test scripts
-├── README.md                     # Comprehensive documentation & evaluation report
-├── server/
-│   ├── server.js                 # Express server & static asset host
-│   ├── data/
-│   │   └── sample-transcripts.json # PDF conversation & multi-domain test cases
-│   ├── routes/
-│   │   ├── analyze.js            # Live utterance & transcript ambiguity analysis
-│   │   ├── questions.js          # Clarification question generation
-│   │   ├── requirements.js       # FR & NFR synthesis (Baseline vs Refined)
-│   │   ├── evaluate.js           # Quality metrics evaluation & comparison
-│   │   └── export.js             # PDF, DOCX, TXT, and JSON export endpoints
-│   └── services/
-│       ├── ambiguity-detector.js # NLP lexical & structural vagueness detector
-│       ├── quality-evaluator.js  # IEEE 830 / ISO 29148 RE quality metric engine
-│       ├── requirement-generator.js # Baseline vs Refined requirement builder
-│       ├── ai-service.js         # AI coordination layer & fallback engine
-│       └── export-service.js     # PDFKit & docx document generation
-├── webapp/
-│   ├── index.html                # Live meeting simulation studio & dashboard
-│   ├── styles.css                # Glassmorphic dark theme & animations
-│   └── app.js                    # Webapp controller, Chart.js radar, Web Speech API
-├── extension/                    # Manifest V3 Chrome Extension
-│   ├── manifest.json             # Manifest V3 configuration
-│   ├── icons/                    # Extension icons (16, 32, 48, 128)
-│   ├── background/
-│   │   └── service-worker.js     # Background worker & state coordinator
-│   ├── content/
-│   │   ├── zoom-observer.js      # Zoom Web Client caption/transcript observer
-│   │   ├── meet-observer.js      # Google Meet & Teams caption observer
-│   │   ├── injected-hud.js       # Floating in-meeting HUD controller
-│   │   └── injected-hud.css      # Floating HUD styling
-│   ├── popup/
-│   │   ├── popup.html            # Extension popup HTML
-│   │   ├── popup.css             # Extension popup styling
-│   │   └── popup.js              # Extension popup controller
-│   ├── sidepanel/
-│   │   ├── sidepanel.html        # Side panel HTML
-│   │   ├── sidepanel.css         # Side panel styling
-│   │   └── sidepanel.js          # Side panel controller
-│   └── shared/
-│       ├── api.js                # Extension API client & offline fallback
-│       ├── nlp-engine.js         # In-browser NLP ambiguity engine
-│       └── sample-data.js        # Embedded sample meeting scenarios
-└── tests/
-    ├── nlp-ambiguity.test.js     # Ambiguity detector tests
-    ├── requirement-extraction.test.js # FR/NFR extraction tests
-    ├── quality-metrics.test.js   # Quality evaluation & comparison tests
-    ├── export.test.js            # PDF, DOCX, Markdown export tests
-    └── run-all-tests.js          # Test runner
-```
-
----
-
-## 🎯 Verification & Testing
-
-To execute the automated test suite:
-```bash
-npm test
-```
-
-Expected output:
-```
-====================================================
-🧪 RUNNING COMPREHENSIVE TEST SUITE
-====================================================
-
---- Running Ambiguity Detector Tests ---
-✓ Test 1 Passed: Detected subjective trust phrase
-✓ Test 2 Passed: Handled question utterance
-✓ Test 3 Passed: Detected multiple fuzzy adjectives
-✓ Test 4 Passed: Full transcript analysis (Ambiguity Index: 95/100, Flags: 20)
-All Ambiguity Detector Tests Passed!
-
---- Running Requirement Extraction & Refinement Tests ---
-✓ Test 1 Passed: Baseline requirements generated with raw ambiguities
-✓ Test 2 Passed: Refined requirements generated with formal metrics and SLOs
-Categorized NFRs present: [
-  'Performance',
-  'Fairness & Bias',
-  'Accuracy & Quality',
-  'Security & Privacy',
-  'Explainability',
-  'Project Scope'
-]
-✓ Test 3 Passed: Comprehensive NFR categorization verified
-All Requirement Extraction Tests Passed!
-
---- Running Quality Metrics Evaluation Tests ---
-Baseline Overall Quality Index: 30/100 (Poor)
-✓ Test 1 Passed: Evaluated Baseline quality
-Refined Overall Quality Index: 92/100 (Excellent)
-✓ Test 2 Passed: Evaluated Refined quality
-Quality Delta: +62 points (+207% improvement)
-✓ Test 3 Passed: Quality comparison delta verified
-All Quality Metrics Tests Passed!
-
---- Running Export Service Tests ---
-✓ Test 1 Passed: PDF generated successfully (10013 bytes)
-✓ Test 2 Passed: DOCX generated successfully (11182 bytes)
-✓ Test 3 Passed: Markdown generated successfully (11265 characters)
-All Export Service Tests Passed!
-```
-
----
-
-## 📄 Export Format Highlights
-
-- **PDF Export**: Generates an ISO/IEC/IEEE 29148 standard SRS report complete with executive summary, raw transcript audit, stakeholder clarification logs, refined FR/NFR tables, and quality comparison scorecard.
-- **Word Document (.docx)**: Structured Word document with formal heading hierarchies, color-coded callouts, and formatted specification tables.
-- **Markdown / TXT (.md)**: Clean, version-controllable specification file ready for GitHub repositories.
-- **JSON Export**: Structured schema mapping IDs, priorities, acceptance criteria, metrics, and verification methods for direct import into Jira, Azure DevOps, or Linear.
 
 ---
 
 ## ⚖️ License
-MIT License. Built for Software Engineering Take-Home Assignment 2.
+MIT License. Built for Software Engineering Take-Home Assignment 2 (Student ID: `202401093`).

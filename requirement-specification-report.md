@@ -1,13 +1,13 @@
 # AI-Powered Requirement Analysis & Quality Report (Assignment 2)
-**Generated:** 24/8/2026, 9:25:47 pm | **Standard:** ISO/IEC/IEEE 29148
+**Generated:** 24/8/2026, 9:36:04 pm | **Standard:** ISO/IEC/IEEE 29148
 
 ## 1. Executive Summary & Quality Scorecard
 
-- **Without Clarification (Baseline Quality):** 21 / 100 (Poor)
-- **With AI Clarification (Refined Quality):** 87 / 100 (Excellent)
-- **Overall Quality Improvement:** +66 Points
-- **Ambiguity Reduction:** -82%
-- **Testability Gain:** +72%
+- **Without Clarification (Baseline Quality):** 8 / 100 (Poor)
+- **With AI Clarification (Refined Quality):** 96 / 100 (Excellent)
+- **Overall Quality Improvement:** +88 Points
+- **Ambiguity Reduction:** -100%
+- **Testability Gain:** +100%
 
 ## 2. Stakeholder Clarification Q&A Log
 
@@ -98,9 +98,9 @@
 - **Verification Method:** Automated Attribution Validation Test
 
 ### NFR-SEC-01: Data Privacy, PII Protection & Storage Security [Category: Security & Privacy] [Priority: Critical]
-- **Description:** All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with role-based access control (RBAC) compliant with GDPR and CCPA.
+- **Description:** All candidate resumes and personal data must be encrypted at rest using AES-256 and in transit using TLS 1.3, with RBAC compliant with GDPR/CCPA based on data pipeline: Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs..
 - **Target Metric / Threshold:** `AES-256 at rest, TLS 1.3 in transit, 100% audit logging`
-- **Traceability:** Security Baseline Specification
+- **Traceability:** Clarification #q-data-01: "Support PDF and DOCX up to 10MB; parse unstructured text into standardized JSON schema (skills, education, work history, projects); run automated data cleaning on historical logs."
 - **Verification Method:** Automated SAST/DAST Security Scan
 
 ### NFR-SCOPE-01: MVP Milestone Delivery & Scope Boundaries [Category: Project Scope] [Priority: High]
@@ -113,8 +113,8 @@
 
 | Evaluation Dimension | Without Clarification | With Clarification | Improvement |
 | :--- | :--- | :--- | :--- |
-| **Overall Quality Index** | 21/100 | 87/100 | +66 pts |
-| **Ambiguity Score** | 90% | 8% | -82% |
-| **Completeness Coverage** | 20% | 98% | +78% |
-| **Testability & Verifiability** | 15% | 87% | +72% |
-| **Specificity & Measurability** | 18% | 63% | +45% |
+| **Overall Quality Index** | 8/100 | 96/100 | +88 pts |
+| **Ambiguity Score** | 100% | 12% | -88% |
+| **Completeness Coverage** | 35% | 100% | +65% |
+| **Testability & Verifiability** | 25% | 100% | +75% |
+| **Specificity & Measurability** | 30% | 80% | +50% |
