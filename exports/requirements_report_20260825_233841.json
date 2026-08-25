@@ -1,0 +1,649 @@
+{
+  "title": "Test Report JSON",
+  "clarifications": [],
+  "baseline": {
+    "frs": [
+      {
+        "id": "FR-01",
+        "title": "Resume Ingestion Pipeline (Unspecified Data Contract)",
+        "category": "Functional",
+        "description": "The system shall ingest past resumes and hiring data (data formats, size limits, and parsing schema unclarified).",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "We have past resumes and hiring decisions, but they're not very structured.",
+        "refinedText": "Resume ingestion data contract pending stakeholder decision.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "System accepts resume files"
+        ],
+        "sourceStatement": "We have past resumes and hiring decisions, but they're not very structured.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "Data formats (PDF/DOCX/OCR) and JSON parsing schema unresolved"
+        ]
+      },
+      {
+        "id": "FR-02",
+        "title": "Candidate Scoring & Ranking Engine (Unspecified Weighting)",
+        "category": "Functional",
+        "description": "The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Mainly skills and experience. And overall profile strength. Things like good companies, solid projects...",
+        "refinedText": "Candidate ranking weighting formula pending stakeholder input.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "Candidates are ranked"
+        ],
+        "sourceStatement": "Mainly skills and experience. And overall profile strength.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Good companies', 'solid projects', and fresher weighting formula unresolved"
+        ]
+      },
+      {
+        "id": "FR-03",
+        "title": "Explainability & Match Insights (Unspecified Presentation Schema)",
+        "category": "Functional",
+        "description": "The system shall provide useful explainability for hiring decisions (presentation format and schema unclarified).",
+        "priority": "Medium",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Do we need explainability? / Yes, that would be useful.",
+        "refinedText": "Explainability presentation schema pending recruiter preference.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "System provides some explanation"
+        ],
+        "sourceStatement": "Do we need explainability? Yes, that would be useful.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Useful' explainability format unquantified"
+        ]
+      },
+      {
+        "id": "FR-04",
+        "title": "Role-Based Recruiter Access (Baseline)",
+        "category": "Functional",
+        "description": "The system shall allow authorized hiring managers and HR recruiters to submit job descriptions and review candidate shortlists.",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "We need to build an AI-based resume analyzer... We want it to take resumes and rank them based on relevance to a job description.",
+        "refinedText": "Authorized HR recruiters can create JDs and view ranked candidates.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "Recruiter can log in and submit JD"
+        ],
+        "sourceStatement": "We need to build an AI-based resume analyzer.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": null
+      }
+    ],
+    "nfrs": [
+      {
+        "id": "NFR-PERF-01",
+        "title": "Processing Latency & Response Time",
+        "category": "Performance",
+        "description": "The system shouldn't be slow and response time per resume should ideally be quick.",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "It shouldn't be slow. / Ideally quick.",
+        "refinedText": "System processing time should be quick (pending latency SLO).",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting measurable latency threshold",
+        "acceptanceCriteria": [
+          "System feels responsive"
+        ],
+        "sourceStatement": "It shouldn't be slow. Ideally quick.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Not slow' and 'quick' are unmeasurable subjective predicates"
+        ]
+      },
+      {
+        "id": "NFR-FAIR-01",
+        "title": "Fairness & Demographic Bias Mitigation",
+        "category": "Fairness",
+        "description": "The system must avoid bias, especially related to gender or college background.",
+        "priority": "Critical",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Yes, we must avoid bias, especially related to gender or college background.",
+        "refinedText": "Avoid demographic bias (pending Disparate Impact threshold).",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting Disparate Impact Ratio / Parity Metric",
+        "acceptanceCriteria": [
+          "System does not show obvious bias"
+        ],
+        "sourceStatement": "Yes, we must avoid bias, especially related to gender or college background.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Avoid bias' lacks concrete mathematical threshold (e.g. 0.80 - 1.25 DIR)"
+        ]
+      },
+      {
+        "id": "NFR-ACC-01",
+        "title": "Candidate Matching Quality & Accuracy",
+        "category": "Accuracy",
+        "description": "The candidate match quality should be good enough so that HR trusts it.",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "It should be good enough so that HR trusts it.",
+        "refinedText": "Matching quality good enough for HR trust (pending Precision/NDCG benchmark).",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting quantitative accuracy benchmark",
+        "acceptanceCriteria": [
+          "HR agrees matches are reasonable"
+        ],
+        "sourceStatement": "It should be good enough so that HR trusts it.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Good enough' and 'HR trust' are subjective without validation dataset"
+        ]
+      },
+      {
+        "id": "NFR-SCOPE-01",
+        "title": "Delivery Timeline & MVP Scope",
+        "category": "Scope",
+        "description": "The project team needs to deliver an MVP soon.",
+        "priority": "Medium",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "We need an MVP soon.",
+        "refinedText": "MVP delivery expected soon (pending target date).",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting sprint deadline commitment",
+        "acceptanceCriteria": [
+          "MVP is delivered"
+        ],
+        "sourceStatement": "We need an MVP soon.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Soon' is an undefined timeline"
+        ]
+      },
+      {
+        "id": "NFR-SEC-01",
+        "title": "Candidate PII Protection & Data Privacy",
+        "category": "Security",
+        "description": "Candidate personally identifiable information (PII) must be stored and processed securely.",
+        "priority": "Critical",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Candidate resumes contain personal contact information.",
+        "refinedText": "PII stored securely (pending formal encryption baseline).",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Security Baseline",
+        "metric": "Awaiting security criteria",
+        "acceptanceCriteria": [
+          "PII handled securely"
+        ],
+        "sourceStatement": "Candidate resumes contain personal contact information.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": null
+      },
+      {
+        "id": "NFR-USAB-01",
+        "title": "Recruiter Interface Usability",
+        "category": "Usability",
+        "description": "The recruiter dashboard interface shall be intuitive for HR talent acquisition specialists.",
+        "priority": "Medium",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "HR recruiters will use this dashboard daily.",
+        "refinedText": "Interface usability (pending formal usability criteria).",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Usability Benchmark",
+        "metric": "Awaiting usability criteria",
+        "acceptanceCriteria": [
+          "Recruiters can use dashboard"
+        ],
+        "sourceStatement": "HR recruiters will use this dashboard daily.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": null
+      }
+    ]
+  },
+  "refined": {
+    "frs": [
+      {
+        "id": "FR-01",
+        "title": "Resume Ingestion & Parsing Engine",
+        "category": "Functional",
+        "description": "The system shall ingest past resumes and hiring data (data format and parsing pipeline pending stakeholder clarification).",
+        "priority": "Must Have",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "We have past resumes and hiring decisions, but they're not very structured.",
+        "refinedText": "Resume ingestion data contract pending stakeholder decision.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "System accepts resume files"
+        ],
+        "sourceStatement": "We have past resumes and hiring decisions, but they're not very structured.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "Data formats (PDF/DOCX/OCR) and JSON parsing schema unresolved"
+        ]
+      },
+      {
+        "id": "FR-02",
+        "title": "Deterministic Multi-Factor Candidate Scoring Engine",
+        "category": "Functional",
+        "description": "The system shall rank candidates based on relevance, skills, and overall profile strength (exact scoring weights pending clarification).",
+        "priority": "Must Have",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Mainly skills and experience. And overall profile strength. Things like good companies, solid projects...",
+        "refinedText": "Candidate ranking weighting formula pending stakeholder input.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "Candidates are ranked"
+        ],
+        "sourceStatement": "It should rank them based on relevance... Sometimes a strong fresher is better than someone with 5 average years.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Good companies', 'solid projects', and fresher weighting formula unresolved"
+        ]
+      },
+      {
+        "id": "FR-03",
+        "title": "Structured Explainability & Match Scorecard",
+        "category": "Functional",
+        "description": "The system shall provide useful explainability for hiring decisions (presentation format and schema unclarified).",
+        "priority": "Must Have",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Do we need explainability? / Yes, that would be useful.",
+        "refinedText": "Explainability presentation schema pending recruiter preference.",
+        "stakeholderEvidence": null,
+        "acceptanceCriteria": [
+          "System provides some explanation"
+        ],
+        "sourceStatement": "Do we need explainability? Yes, that would be useful.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Useful' explainability format unquantified"
+        ]
+      },
+      {
+        "id": "FR-04",
+        "title": "Role-Based Recruiter & Hiring Manager Dashboard",
+        "category": "Functional",
+        "description": "The system shall provide secure role-based portals for HR Recruiters and Hiring Managers to upload job descriptions, trigger bulk resume scoring, and export shortlists.",
+        "priority": "Must Have",
+        "status": "RESOLVED",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "We need to build an AI-based resume analyzer.",
+        "refinedText": "The system shall provide role-based access for recruiter workflow execution.",
+        "stakeholderEvidence": "Directly derived from core meeting objective.",
+        "acceptanceCriteria": [
+          "Given authenticated recruiter, When uploading JD, Then analysis job is dispatched.",
+          "Given unauthorized user, When accessing dashboard, Then HTTP 403 Forbidden is returned."
+        ],
+        "sourceStatement": "We need to build an AI-based resume analyzer.",
+        "clarificationReference": null,
+        "verificationMethod": "Automated Security & End-to-End Workflow Test",
+        "ambiguityFlags": null
+      }
+    ],
+    "nfrs": [
+      {
+        "id": "NFR-PERF-01",
+        "title": "Resume Parsing & Ranking Latency SLO",
+        "category": "Performance",
+        "description": "The system shouldn't be slow and response time per resume should ideally be quick.",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "It shouldn't be slow. / Ideally quick.",
+        "refinedText": "Processing latency pending stakeholder SLO.",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting measurable latency threshold",
+        "acceptanceCriteria": [
+          "System feels responsive"
+        ],
+        "sourceStatement": "It shouldn't be slow. Ideally quick.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Not slow' and 'quick' are unmeasurable subjective predicates"
+        ]
+      },
+      {
+        "id": "NFR-FAIR-01",
+        "title": "Demographic Fairness & Disparate Impact Compliance",
+        "category": "Fairness",
+        "description": "The system must avoid bias, especially related to gender or college background.",
+        "priority": "Critical",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Yes, we must avoid bias, especially related to gender or college background.",
+        "refinedText": "Fairness criteria pending stakeholder Disparate Impact threshold.",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting Disparate Impact Ratio",
+        "acceptanceCriteria": [
+          "System does not show obvious bias"
+        ],
+        "sourceStatement": "Yes, we must avoid bias, especially related to gender or college background.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Avoid bias' lacks concrete mathematical threshold (e.g. 0.80 - 1.25 DIR)"
+        ]
+      },
+      {
+        "id": "NFR-ACC-01",
+        "title": "Candidate Matching Accuracy & HR Trust Benchmark",
+        "category": "Accuracy",
+        "description": "The candidate match quality should be good enough so that HR trusts it.",
+        "priority": "High",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "It should be good enough so that HR trusts it.",
+        "refinedText": "Accuracy benchmark pending stakeholder precision metrics.",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting quantitative accuracy benchmark",
+        "acceptanceCriteria": [
+          "HR agrees matches are reasonable"
+        ],
+        "sourceStatement": "It should be good enough so that HR trusts it.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Good enough' and 'HR trust' are subjective without validation dataset"
+        ]
+      },
+      {
+        "id": "NFR-SCOPE-01",
+        "title": "Committed MVP Release Milestone",
+        "category": "Scope",
+        "description": "The project team needs to deliver an MVP soon.",
+        "priority": "Medium",
+        "status": "PENDING_CLARIFICATION",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "We need an MVP soon.",
+        "refinedText": "Delivery milestone pending committed calendar deadline.",
+        "stakeholderEvidence": null,
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting sprint deadline commitment",
+        "acceptanceCriteria": [
+          "MVP is delivered"
+        ],
+        "sourceStatement": "We need an MVP soon.",
+        "clarificationReference": null,
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "'Soon' is an undefined timeline"
+        ]
+      },
+      {
+        "id": "NFR-SEC-01",
+        "title": "Candidate PII Protection & Data Privacy",
+        "category": "Security",
+        "description": "Candidate personally identifiable information (PII) must be stored with AES-256 encryption at rest and TLS 1.3 in transit.",
+        "priority": "Critical",
+        "status": "RESOLVED",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "Candidate resumes contain personal contact information.",
+        "refinedText": "PII stored securely with AES-256 encryption at rest and TLS 1.3 in transit.",
+        "stakeholderEvidence": null,
+        "targetThreshold": "AES-256 encryption at rest, TLS 1.3 in transit, GDPR Article 32 compliant",
+        "metric": "100% encrypted candidate datastore",
+        "acceptanceCriteria": [
+          "Given candidate resume upload, When stored in database, Then PII fields are encrypted with AES-256.",
+          "Given API communication, When data is in transit, Then TLS 1.3 is enforced."
+        ],
+        "sourceStatement": "Candidate resumes contain personal contact information.",
+        "clarificationReference": null,
+        "verificationMethod": "Automated Security & Encryption Audit",
+        "ambiguityFlags": null
+      },
+      {
+        "id": "NFR-USAB-01",
+        "title": "Recruiter Interface Usability Benchmark",
+        "category": "Usability",
+        "description": "The recruiter dashboard interface shall achieve System Usability Scale (SUS) score >= 80.0.",
+        "priority": "Medium",
+        "status": "RESOLVED",
+        "source": "RAW_DIALOGUE",
+        "sourceClarificationId": null,
+        "originalText": "HR recruiters will use this dashboard daily.",
+        "refinedText": "Interface usability compliant with System Usability Scale (SUS) score >= 80.0.",
+        "stakeholderEvidence": null,
+        "targetThreshold": "System Usability Scale (SUS) >= 80.0",
+        "metric": "SUS Usability Benchmark",
+        "acceptanceCriteria": [
+          "Given first-time recruiter user, When evaluating candidate shortlist, Then task completion occurs in < 3 minutes without formal training.",
+          "Given usability evaluation with 10 HR users, When scored, Then average SUS score exceeds 80.0."
+        ],
+        "sourceStatement": "HR recruiters will use this dashboard daily.",
+        "clarificationReference": null,
+        "verificationMethod": "User Usability Testing",
+        "ambiguityFlags": null
+      }
+    ]
+  },
+  "evaluation": {
+    "baseline": {
+      "overallQualityIndex": 8,
+      "qualityTier": "Critical",
+      "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
+      "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
+      "metrics": {
+        "ambiguity": {
+          "score": 100,
+          "label": "Ambiguity Level",
+          "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
+        },
+        "completeness": {
+          "score": 0,
+          "label": "Completeness Coverage",
+          "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
+        },
+        "testability": {
+          "score": 0,
+          "label": "Testability & Verifiability",
+          "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
+        },
+        "specificity": {
+          "score": 0,
+          "label": "Specificity & Measurability",
+          "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
+        },
+        "traceability": {
+          "score": 50,
+          "label": "Traceability & Lineage",
+          "description": "Proportion of requirements linked directly to stakeholder decisions or meeting dialogue."
+        }
+      },
+      "rawCounts": {
+        "totalRequirements": 10,
+        "functionalRequirements": 4,
+        "nonFunctionalRequirements": 6,
+        "resolvedCount": 0,
+        "pendingCount": 10,
+        "flaggedAmbiguities": 10
+      }
+    },
+    "refined": {
+      "overallQualityIndex": 31,
+      "qualityTier": "Poor",
+      "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
+      "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
+      "metrics": {
+        "ambiguity": {
+          "score": 70,
+          "label": "Ambiguity Level",
+          "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
+        },
+        "completeness": {
+          "score": 31,
+          "label": "Completeness Coverage",
+          "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
+        },
+        "testability": {
+          "score": 30,
+          "label": "Testability & Verifiability",
+          "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
+        },
+        "specificity": {
+          "score": 20,
+          "label": "Specificity & Measurability",
+          "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
+        },
+        "traceability": {
+          "score": 50,
+          "label": "Traceability & Lineage",
+          "description": "Proportion of requirements linked directly to stakeholder decisions or meeting dialogue."
+        }
+      },
+      "rawCounts": {
+        "totalRequirements": 10,
+        "functionalRequirements": 4,
+        "nonFunctionalRequirements": 6,
+        "resolvedCount": 3,
+        "pendingCount": 7,
+        "flaggedAmbiguities": 7
+      }
+    },
+    "comparison": {
+      "baseline_metrics": {
+        "overallQualityIndex": 8,
+        "qualityTier": "Critical",
+        "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
+        "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
+        "metrics": {
+          "ambiguity": {
+            "score": 100,
+            "label": "Ambiguity Level",
+            "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
+          },
+          "completeness": {
+            "score": 0,
+            "label": "Completeness Coverage",
+            "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
+          },
+          "testability": {
+            "score": 0,
+            "label": "Testability & Verifiability",
+            "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
+          },
+          "specificity": {
+            "score": 0,
+            "label": "Specificity & Measurability",
+            "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
+          },
+          "traceability": {
+            "score": 50,
+            "label": "Traceability & Lineage",
+            "description": "Proportion of requirements linked directly to stakeholder decisions or meeting dialogue."
+          }
+        },
+        "rawCounts": {
+          "totalRequirements": 10,
+          "functionalRequirements": 4,
+          "nonFunctionalRequirements": 6,
+          "resolvedCount": 0,
+          "pendingCount": 10,
+          "flaggedAmbiguities": 10
+        }
+      },
+      "refined_metrics": {
+        "overallQualityIndex": 31,
+        "qualityTier": "Poor",
+        "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
+        "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
+        "metrics": {
+          "ambiguity": {
+            "score": 70,
+            "label": "Ambiguity Level",
+            "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
+          },
+          "completeness": {
+            "score": 31,
+            "label": "Completeness Coverage",
+            "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
+          },
+          "testability": {
+            "score": 30,
+            "label": "Testability & Verifiability",
+            "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
+          },
+          "specificity": {
+            "score": 20,
+            "label": "Specificity & Measurability",
+            "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
+          },
+          "traceability": {
+            "score": 50,
+            "label": "Traceability & Lineage",
+            "description": "Proportion of requirements linked directly to stakeholder decisions or meeting dialogue."
+          }
+        },
+        "rawCounts": {
+          "totalRequirements": 10,
+          "functionalRequirements": 4,
+          "nonFunctionalRequirements": 6,
+          "resolvedCount": 3,
+          "pendingCount": 7,
+          "flaggedAmbiguities": 7
+        }
+      },
+      "delta": {
+        "oqiImprovement": 23,
+        "percentImprovement": 287.5,
+        "ambiguityReduction": 30,
+        "testabilityGain": 30,
+        "specificityGain": 20,
+        "completenessGain": 31,
+        "traceabilityGain": 0
+      },
+      "qualitative": null
+    }
+  }
+}

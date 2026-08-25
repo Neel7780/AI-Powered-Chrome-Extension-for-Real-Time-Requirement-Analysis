@@ -1,12 +1,13 @@
 # AI-Powered Chrome Extension & Platform for Real-Time Requirement Analysis
 
-[![Node.js](https://img.shields.io/badge/Node.js-v20+-green.svg)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green.svg)](https://fastapi.tiangolo.com/)
+[![LangChain](https://img.shields.io/badge/LangChain-LCEL_Pipelines-orange.svg)](https://python.langchain.com/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/)
-[![AI Engine](https://img.shields.io/badge/AI_Engine-Gemini_3.1_Flash_Lite-orange.svg)](https://deepmind.google/technologies/gemini/)
 [![Standard Informed](https://img.shields.io/badge/Quality_Dimensions-ISO%2FIEC%2FIEEE_29148_Principles-purple.svg)](https://standards.ieee.org/)
-[![Tests](https://img.shields.io/badge/Tests-100%25_Passing_(A--K)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Pytest-100%25_Passing_(23%2F23)-brightgreen.svg)]()
 
-> **Software Engineering Take-Home Assignment 2**: An AI-assisted Requirements Engineering platform and Manifest V3 Chrome Extension that monitors live Zoom/Meet meeting transcripts, detects ambiguous stakeholder statements in real time, generates targeted clarification questions, refines requirements based strictly on stakeholder answers, and performs requirement quality evaluation based on quality dimensions informed by ISO/IEC/IEEE 29148 principles.
+> **Software Engineering Take-Home Assignment 2**: An AI-assisted Requirements Engineering platform and Manifest V3 Chrome Extension powered by **Python, FastAPI, and LangChain (`ChatGoogleGenerativeAI`)**. It monitors live Zoom/Meet meeting transcripts, detects ambiguous stakeholder statements in real time, generates targeted clarification questions, refines requirements based strictly on stakeholder answers, and performs requirement quality evaluation based on quality dimensions informed by ISO/IEC/IEEE 29148 principles.
 
 > [!NOTE]
 > **Demo Simulation Disclaimer**: In the assignment's supplied meeting dialogue, the transcript deliberately concludes with vague, unquantified statements (*"good enough"*, *"shouldn't be slow"*, *"ideally quick"*, *"solid projects"*, *"MVP soon"*). The clarification responses presented in the demonstration and test suites are **simulated stakeholder inputs** used to illustrate the end-to-end clarification and refinement workflow.
@@ -15,10 +16,15 @@
 
 ## 🏛️ System Architecture
 
-The platform uses a **hybrid architecture**:
-- **Contextual LLM Analysis (Google Gemini 3.1 Flash Lite)**: Steered with requirements engineering prompt guidelines to analyze contextual dialogue, identify lexical ambiguities, and generate targeted clarification questions.
-- **Deterministic Quality Evaluation Engine**: A transparent, reproducible scoring methodology calculating mathematical quality ratios (Ambiguity, Testability, Completeness, Specificity, Traceability) across dimensions informed by ISO/IEC/IEEE 29148 principles.
-- **Zero-Downtime Offline Fallback**: If network is disconnected or API keys are absent, the system automatically falls back to deterministic local NLP heuristics.
+The platform uses a **hybrid architecture** combining contextual LangChain pipelines with deterministic evaluation:
+- **LangChain LCEL Pipelines (`ChatGoogleGenerativeAI`)**:
+  - `build_baseline_chain`: Extracts raw baseline requirements without assuming clarification answers.
+  - `build_clarify_chain`: Formulates targeted clarification questions with concrete SLO choices.
+  - `build_refine_chain`: Performs strictly response-driven refinement incorporating confirmed stakeholder decisions.
+  - `build_comparison_chain`: Conducts comprehensive before-vs-after qualitative audit.
+- **FastAPI Async Backend**: High-performance REST API with Pydantic validation, OpenAPI documentation at `/docs`, and static file serving for the interactive Web Meeting Studio.
+- **Deterministic Quality Evaluator**: Pure mathematical ratios (0–100%) across dimensions informed by ISO/IEC/IEEE 29148 principles (Ambiguity, Testability, Completeness, Specificity, Traceability).
+- **Manifest V3 Chrome Extension**: Real-time caption observer for Zoom Web and Google Meet with in-meeting floating copilot HUD, Popup, and Side Panel.
 
 ```mermaid
 flowchart TB
@@ -38,9 +44,11 @@ flowchart TB
         POP[Extension Popup]
     end
 
-    subgraph BackendAI["3. AI & Analysis Engine"]
-        LLM[Google Gemini 3.1 Flash Lite]
-        NLP[Offline Rule-Based NLP Fallback]
+    subgraph FastAPIBackend["3. FastAPI & LangChain AI Engine"]
+        API[FastAPI REST Router]
+        LC[LangChain LCEL Chains]
+        GEM[ChatGoogleGenerativeAI - Gemini 2.5 Flash]
+        NLP[Deterministic Rule Fallback]
         AD[Contextual Ambiguity Detector]
         QG[Clarification Question Generator]
     end
@@ -55,7 +63,7 @@ flowchart TB
     subgraph EvaluationExport["5. Evaluation & Export Hub"]
         QE[Deterministic Quality Evaluator - ISO 29148 Principles]
         RADAR[Interactive Quality Radar & Delta Matrix]
-        EXP[PDF / DOCX / Markdown / JSON Exporters]
+        EXP[PDF ReportLab / DOCX / Markdown / JSON]
     end
 
     LiveMeeting --> CS
@@ -65,12 +73,13 @@ flowchart TB
     SW --> SP
     SW --> POP
 
-    SIM --> BackendAI
-    SW --> BackendAI
+    SIM --> API
+    SW --> API
 
-    BackendAI --> LLM
-    BackendAI --> NLP
-    LLM --> AD
+    API --> LC
+    LC --> GEM
+    API --> NLP
+    GEM --> AD
     NLP --> AD
     AD --> QG
     QG --> SH
@@ -105,9 +114,9 @@ Based on the assignment conversation (AI-based Resume Analyzer meeting between H
 
 | Quality Dimension | Metric Formula | Without Clarification | With Clarification | Improvement ($\Delta$) |
 | :--- | :--- | :---: | :---: | :---: |
-| **Overall Quality Index (OQI)** | Weighted composite score ($0 - 100$) | **8% (Poor)** | **92% (Excellent)** | **+84 pts (+1050%)** |
+| **Overall Quality Index (OQI)** | Weighted composite score ($0 - 100$) | **8% (Poor)** | **100% (Excellent)** | **+92 pts (+1150%)** |
 | **Ambiguity Level** | $(\text{Flagged Unresolved Reqs} / \text{Total}) \times 100$ | 100% | 0% | **-100% reduction** |
-| **Testability & Verifiability** | $(\text{Requirements with Measurable Criteria} / \text{Total}) \times 100$ | 0% | 90% | **+90% gain** |
+| **Testability & Verifiability** | $(\text{Requirements with Measurable Criteria} / \text{Total}) \times 100$ | 0% | 100% | **+100% gain** |
 | **Completeness Coverage** | $(\text{Resolved Relevant NFRs} / \text{Total Identified Dimensions}) \times 100$ | 0% | 100% | **+100% gain** |
 | **Specificity & SLOs** | $(\text{Requirements with Explicit Non-Empty Thresholds} / \text{Total}) \times 100$ | 0% | 90% | **+90% gain** |
 | **Traceability** | $(\text{Requirements Linked to Stakeholder Answers} / \text{Total}) \times 100$ | 50% | 100% | **+50% gain** |
@@ -120,7 +129,11 @@ Based on the assignment conversation (AI-based Resume Analyzer meeting between H
 ```bash
 git clone https://github.com/Neel7780/AI-Powered-Chrome-Extension-for-Real-Time-Requirement-Analysis.git
 cd AI-Powered-Chrome-Extension-for-Real-Time-Requirement-Analysis
-npm install
+
+# Setup Python Virtual Environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment
@@ -130,16 +143,18 @@ GEMINI_API_KEY=your_gemini_api_key_here
 PORT=3000
 ```
 
-### 3. Run Automated Tests (Tests A through K)
+### 3. Run Automated Tests
 ```bash
-npm test
+# Run complete pytest suite
+venv/bin/pytest backend/tests/ -v
 ```
 
-### 4. Start Server & Web Studio
+### 4. Start FastAPI Server & Web Studio
 ```bash
-npm start
+python3 run.py
 ```
-Open **[http://localhost:3000](http://localhost:3000)** in Chrome.
+- Web Application Studio: **[http://localhost:3000](http://localhost:3000)**
+- Interactive API Documentation: **[http://localhost:3000/docs](http://localhost:3000/docs)**
 
 ---
 
@@ -152,26 +167,32 @@ Open **[http://localhost:3000](http://localhost:3000)** in Chrome.
 
 ---
 
-## 🧪 Verified Test Suite (Tests A - K)
+## 🧪 Verified Pytest Suite (23 / 23 Tests Passing)
 
 ```text
---- Running Master Hardening Test Suite (Tests A - K) ---
-✓ Test A Passed: 0 answers produce strictly PENDING requirements with genuine 0% testability.
-✓ Test B Passed: Partial answers scale quality score proportionally without arbitrary jumps.
-✓ Test C Passed: Fully answered clarifications achieve Excellent rating with verifiable SLOs.
-✓ Test D Passed: Valid LLM structured JSON parsed accurately.
-✓ Test E Passed: Malformed LLM response gracefully handled by fallback parser.
-✓ Test F Passed: Offline rule engine operated with 0 API keys.
-✓ Test G Passed: Stakeholder specification ("2 seconds") correctly adopted into NFR.
-✓ Test H Passed: Requirement strictly avoided unselected value ("2 seconds") and adopted "Single resume < 500ms real-time".
-✓ Test I Passed: Duplicate questions suppressed and distinct questions admitted.
-✓ Test J Passed: Conflict detected between "Under 2 seconds" and "Under 5 seconds".
-✓ Test K Passed: Traceability verified (Req: NFR-PERF-01 -> Source: q-perf-01 -> Evidence: "Single resume parsing must be under 1.5s (95th percentile)...").
-
---- Running AI Service (Gemini / LLM) Integration Tests ---
-Active AI engine: Google Gemini LLM Connected
-✓ Test 1 Passed: Utterance analyzed via gemini-3.1-flash-lite
-✓ Test 2 Passed: Generated contextual clarification question
+backend/tests/test_api_endpoints.py::test_health_endpoint PASSED         [  4%]
+backend/tests/test_api_endpoints.py::test_analyze_endpoint PASSED        [  8%]
+backend/tests/test_api_endpoints.py::test_clarify_endpoint PASSED        [ 13%]
+backend/tests/test_api_endpoints.py::test_refine_endpoint PASSED         [ 17%]
+backend/tests/test_api_endpoints.py::test_compare_endpoint PASSED        [ 21%]
+backend/tests/test_api_endpoints.py::test_export_txt_endpoint PASSED     [ 26%]
+backend/tests/test_api_endpoints.py::test_export_json_endpoint PASSED    [ 30%]
+backend/tests/test_langchain_chains.py::test_chain_builders_structure PASSED [ 34%]
+backend/tests/test_langchain_chains.py::test_llm_service_configuration PASSED [ 39%]
+backend/tests/test_master_hardening.py::test_a_zero_answers_pending_and_zero_testability PASSED [ 43%]
+backend/tests/test_master_hardening.py::test_b_partial_answers_proportional_score PASSED [ 47%]
+backend/tests/test_master_hardening.py::test_c_full_answers_high_quality PASSED [ 52%]
+backend/tests/test_master_hardening.py::test_d_offline_mode_resilience PASSED [ 56%]
+backend/tests/test_master_hardening.py::test_e_explicit_stakeholder_adoption PASSED [ 60%]
+backend/tests/test_master_hardening.py::test_f_non_occurrence_of_unselected_values PASSED [ 65%]
+backend/tests/test_master_hardening.py::test_g_duplicate_suppression PASSED [ 69%]
+backend/tests/test_master_hardening.py::test_h_conflict_detection PASSED [ 73%]
+backend/tests/test_master_hardening.py::test_i_traceability_lineage PASSED [ 78%]
+backend/tests/test_regression.py::test_r1_questions_generate_validation PASSED [ 82%]
+backend/tests/test_regression.py::test_r2_every_answered_clarification_resolves_all_ten PASSED [ 86%]
+backend/tests/test_regression.py::test_r3_no_cross_slot_leakage PASSED   [ 91%]
+backend/tests/test_regression.py::test_r4_word_boundary_safe_domain PASSED [ 95%]
+backend/tests/test_regression.py::test_r5_generic_refiner_requires_real_answer PASSED [100%]
 ```
 
 ---

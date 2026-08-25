@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Requirement Lens</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="eyebrow">LIVE MEETING ASSISTANT</div>
+    <h1>Requirement Lens</h1>
+    <p>Turn vague meeting statements into testable requirements.</p>
+  </header>
+
+  <label for="transcript">Meeting transcript</label>
+  <textarea id="transcript" placeholder="Paste the transcript or capture it from the active Zoom tab..."></textarea>
+
+  <div class="row">
+    <button id="capture" class="secondary">Capture Zoom text</button>
+    <button id="baseline" class="primary">Build baseline</button>
+  </div>
+
+  <section>
+    <div class="section-title"><span>01</span> Baseline</div>
+    <pre id="baselineOutput">Waiting for analysis...</pre>
+  </section>
+
+  <section>
+    <div class="section-title"><span>02</span> Clarify</div>
+    <button id="clarify" class="primary wide">Find ambiguity + questions</button>
+    <div id="questionList"></div>
+  </section>
+
+  <section>
+    <div class="section-title"><span>03</span> Stakeholder responses</div>
+    <textarea id="responses" placeholder="Enter answers in the same order as the questions, one answer per line..."></textarea>
+    <button id="refine" class="primary wide">Generate refined requirements</button>
+    <pre id="refinedOutput">Waiting for clarification...</pre>
+  </section>
+
+  <section>
+    <div class="section-title"><span>04</span> Quality comparison</div>
+    <button id="compare" class="primary wide">Compare before vs after</button>
+    <pre id="comparisonOutput">Waiting for both versions...</pre>
+  </section>
+
+  <section>
+    <div class="section-title"><span>05</span> Export</div>
+    <div class="row three">
+      <button data-export="txt" class="secondary">TXT</button>
+      <button data-export="pdf" class="secondary">PDF</button>
+      <button data-export="docx" class="secondary">DOCX</button>
+    </div>
+  </section>
+
+  <div id="status" role="status">Ready.</div>
+  <script src="popup.js"></script>
+</body>
+</html>
