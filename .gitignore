@@ -34,3 +34,11 @@ Thumbs.db
 .gitmodules
 .mcp.json
 .ripgreprc
+# The sandbox creates these as empty files, so the trailing-slash rules miss them
+.idea
+.vscode
+
+# AI authoring notes — kept locally, not part of the submission
+Final Master Prompt*.md
+Ultimate Final Prompt*.md
+

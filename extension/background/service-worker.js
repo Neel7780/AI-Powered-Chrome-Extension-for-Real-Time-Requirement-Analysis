@@ -92,6 +92,19 @@ function handleNewUtterance(utterance) {
     meetingState.ambiguousCount++;
   }
 
+  if (utterance.candidateQuestion) {
+    const question = utterance.candidateQuestion;
+    const alreadyTracked = meetingState.clarifications.some(c =>
+      c.id === question.id || c.triggeredBy === question.triggeredBy
+    );
+    if (!alreadyTracked) {
+      meetingState.clarifications.push({
+        ...question,
+        selectedResponse: null
+      });
+    }
+  }
+
   // Broadcast to Sidepanel and active Content Script HUD
   chrome.runtime.sendMessage({
     type: 'UTTERANCE_ADDED',

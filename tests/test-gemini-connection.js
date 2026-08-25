@@ -7,7 +7,7 @@ async function testGemini() {
   if (!apiKey) throw new Error('No API key found in .env');
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite' });
   const result = await model.generateContent('Explain what an ambiguous requirement is in 1 short sentence.');
   const response = await result.response;
   console.log('Gemini Response:\n', response.text());

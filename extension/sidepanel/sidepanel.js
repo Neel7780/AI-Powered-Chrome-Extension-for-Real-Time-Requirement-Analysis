@@ -103,6 +103,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (message.type === 'MEETING_DATA_RESET') {
       activeTranscript = [];
       activeClarifications = [];
+      generatedRequirements = null;
+      qualityEvaluation = null;
+      backendReachable = true;
       renderAll();
     }
   });
@@ -130,21 +133,31 @@ function loadSamplePDFMeeting() {
   const sample = window.EXT_SAMPLE_TRANSCRIPTS?.[0];
   if (!sample) return;
 
+  chrome.runtime.sendMessage({ type: 'CLEAR_MEETING_DATA' });
   activeTranscript = [];
+  activeClarifications = [];
+  generatedRequirements = null;
+  qualityEvaluation = null;
+
   sample.utterances.forEach(u => {
     const analysis = window.ClientNLPEngine?.analyzeUtterance(u.text, u.speaker, u.timestamp);
-    activeTranscript.push({
+    const utterance = {
       speaker: u.speaker,
       text: u.text,
       timestamp: u.timestamp,
       ...analysis
-    });
+    };
+    activeTranscript.push(utterance);
+    chrome.runtime.sendMessage({ type: 'NEW_UTTERANCE', payload: utterance });
+
+    if (utterance.candidateQuestion) {
+      activeClarifications.push({
+        ...utterance.candidateQuestion,
+        selectedResponse: null
+      });
+    }
   });
 
-  // Copy each clarification object, not just the array: selecting a response
-  // writes to `selectedResponse`, which would otherwise mutate the shared sample
-  // data and leave stale answers behind after "Clear all".
-  activeClarifications = sample.sampleClarifications.map(c => ({ ...c }));
   renderAll();
 }
 
@@ -371,6 +384,8 @@ function renderQualityTab() {
   const badgeScore = document.getElementById('badge-quality-score');
   const baseScoreEl = document.getElementById('qual-baseline-score');
   const refScoreEl = document.getElementById('qual-refined-score');
+  const baseTierEl = document.getElementById('qual-baseline-tier');
+  const refTierEl = document.getElementById('qual-refined-tier');
   const deltaBadge = document.getElementById('qual-delta-badge');
 
   // Never fabricate scores: until an evaluation exists, show placeholders rather
@@ -381,21 +396,51 @@ function renderQualityTab() {
   if (typeof baseOQI !== 'number' || typeof refOQI !== 'number') {
     baseScoreEl.innerText = '--';
     refScoreEl.innerText = '--';
+    baseTierEl.innerText = 'Not evaluated';
+    refTierEl.innerText = 'Not evaluated';
     badgeScore.innerText = '--';
     deltaBadge.innerText = backendReachable
       ? 'Awaiting requirement evaluation'
       : 'Backend unreachable — start the server on port 3000';
+    ['amb', 'test', 'comp', 'spec'].forEach(metric => {
+      document.getElementById(`m-diff-${metric}`).innerText = 'Not evaluated';
+      document.getElementById(`bar-base-${metric}`).style.width = '0%';
+      document.getElementById(`bar-ref-${metric}`).style.width = '0%';
+    });
+    document.getElementById('key-findings-list').innerHTML = '<li>Run the meeting analysis to calculate engineering impact.</li>';
     return;
   }
 
   const delta = refOQI - baseOQI;
   baseScoreEl.innerText = `${baseOQI}%`;
   refScoreEl.innerText = `${refOQI}%`;
+  baseTierEl.innerText = `${qualityEvaluation.baseline.qualityTier} Quality`;
+  refTierEl.innerText = `${qualityEvaluation.refined.qualityTier} Quality`;
   badgeScore.innerText = `${refOQI}%`;
   // Guard the relative figure: a baseline of 0 has no finite percentage gain.
   deltaBadge.innerText = baseOQI > 0
     ? `+${delta} Points Overall Quality Improvement (+${Math.round((delta / baseOQI) * 100)}%)`
     : `+${delta} Points Overall Quality Improvement`;
+
+  const metrics = [
+    ['amb', qualityEvaluation.baseline.metrics?.ambiguity?.score, qualityEvaluation.refined.metrics?.ambiguity?.score, true],
+    ['test', qualityEvaluation.baseline.metrics?.testability?.score, qualityEvaluation.refined.metrics?.testability?.score, false],
+    ['comp', qualityEvaluation.baseline.metrics?.completeness?.score, qualityEvaluation.refined.metrics?.completeness?.score, false],
+    ['spec', qualityEvaluation.baseline.metrics?.specificity?.score, qualityEvaluation.refined.metrics?.specificity?.score, false]
+  ];
+  metrics.forEach(([name, base, refined, lowerIsBetter]) => {
+    document.getElementById(`bar-base-${name}`).style.width = `${base ?? 0}%`;
+    document.getElementById(`bar-ref-${name}`).style.width = `${refined ?? 0}%`;
+    if (typeof base === 'number' && typeof refined === 'number') {
+      const change = lowerIsBetter ? base - refined : refined - base;
+      document.getElementById(`m-diff-${name}`).innerText = `${change >= 0 ? '+' : ''}${change}%`;
+    }
+  });
+
+  const findings = qualityEvaluation.comparison?.keyFindings || [];
+  document.getElementById('key-findings-list').innerHTML = findings.length
+    ? findings.map(finding => `<li>${escapeHtml(finding)}</li>`).join('')
+    : '<li>Quality evaluation completed with no additional findings.</li>';
 }
 
 async function triggerExport(format) {

@@ -92,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sample = window.EXT_SAMPLE_TRANSCRIPTS?.[0];
     if (!sample) return;
 
+    chrome.runtime.sendMessage({ type: 'CLEAR_MEETING_DATA' });
     sample.utterances.forEach(u => {
       const analysis = window.ClientNLPEngine?.analyzeUtterance(u.text, u.speaker, u.timestamp);
       chrome.runtime.sendMessage({
@@ -102,13 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           timestamp: u.timestamp,
           ...analysis
         }
-      });
-    });
-
-    sample.sampleClarifications.forEach(c => {
-      chrome.runtime.sendMessage({
-        type: 'SAVE_CLARIFICATION_RESPONSE',
-        payload: c
       });
     });
 

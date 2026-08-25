@@ -99,19 +99,19 @@
         <div class="quality-scorecard-hero">
           <div class="score-pill baseline">
             <span class="score-label">Without Clarification</span>
-            <span class="score-num" id="qual-baseline-score">30%</span>
-            <span class="score-tier" id="qual-baseline-tier">Poor</span>
+            <span class="score-num" id="qual-baseline-score">--</span>
+            <span class="score-tier" id="qual-baseline-tier">Not evaluated</span>
           </div>
           <div class="score-arrow">➔</div>
           <div class="score-pill refined">
             <span class="score-label">With AI Clarification</span>
-            <span class="score-num" id="qual-refined-score">92%</span>
-            <span class="score-tier" id="qual-refined-tier">Excellent</span>
+            <span class="score-num" id="qual-refined-score">--</span>
+            <span class="score-tier" id="qual-refined-tier">Not evaluated</span>
           </div>
         </div>
 
         <div class="delta-badge" id="qual-delta-badge">
-          +62 Points Overall Quality Improvement (+207%)
+          Awaiting requirement evaluation
         </div>
 
         <!-- Comparative Metrics Breakdown -->
@@ -119,44 +119,44 @@
           <div class="metric-row">
             <div class="m-header">
               <span class="m-name">Ambiguity Level (Lower is Better)</span>
-              <span class="m-diff" id="m-diff-amb">-66%</span>
+              <span class="m-diff" id="m-diff-amb">Not evaluated</span>
             </div>
             <div class="dual-progress">
-              <div class="bar bar-base" style="width: 78%;" title="Without Clarification: 78%"></div>
-              <div class="bar bar-ref" style="width: 12%;" title="With Clarification: 12%"></div>
+              <div class="bar bar-base" id="bar-base-amb" style="width: 0%;"></div>
+              <div class="bar bar-ref" id="bar-ref-amb" style="width: 0%;"></div>
             </div>
           </div>
 
           <div class="metric-row">
             <div class="m-header">
               <span class="m-name">Testability / Verifiability</span>
-              <span class="m-diff positive" id="m-diff-test">+67%</span>
+              <span class="m-diff positive" id="m-diff-test">Not evaluated</span>
             </div>
             <div class="dual-progress">
-              <div class="bar bar-base" style="width: 25%;" title="Without Clarification: 25%"></div>
-              <div class="bar bar-ref" style="width: 92%;" title="With Clarification: 92%"></div>
+              <div class="bar bar-base" id="bar-base-test" style="width: 0%;"></div>
+              <div class="bar bar-ref" id="bar-ref-test" style="width: 0%;"></div>
             </div>
           </div>
 
           <div class="metric-row">
             <div class="m-header">
               <span class="m-name">Completeness & NFR Coverage</span>
-              <span class="m-diff positive" id="m-diff-comp">+59%</span>
+              <span class="m-diff positive" id="m-diff-comp">Not evaluated</span>
             </div>
             <div class="dual-progress">
-              <div class="bar bar-base" style="width: 35%;" title="Without Clarification: 35%"></div>
-              <div class="bar bar-ref" style="width: 94%;" title="With Clarification: 94%"></div>
+              <div class="bar bar-base" id="bar-base-comp" style="width: 0%;"></div>
+              <div class="bar bar-ref" id="bar-ref-comp" style="width: 0%;"></div>
             </div>
           </div>
 
           <div class="metric-row">
             <div class="m-header">
               <span class="m-name">Specificity & Measurability</span>
-              <span class="m-diff positive" id="m-diff-spec">+60%</span>
+              <span class="m-diff positive" id="m-diff-spec">Not evaluated</span>
             </div>
             <div class="dual-progress">
-              <div class="bar bar-base" style="width: 30%;" title="Without Clarification: 30%"></div>
-              <div class="bar bar-ref" style="width: 90%;" title="With Clarification: 90%"></div>
+              <div class="bar bar-base" id="bar-base-spec" style="width: 0%;"></div>
+              <div class="bar bar-ref" id="bar-ref-spec" style="width: 0%;"></div>
             </div>
           </div>
         </div>
@@ -164,9 +164,7 @@
         <div class="comparison-details">
           <h4>Key Engineering Impact:</h4>
           <ul id="key-findings-list">
-            <li>Eliminated fuzzy adjectives ("good enough", "solid", "quick") with concrete SLOs.</li>
-            <li>Introduced Disparate Impact Ratio (0.80 - 1.25) for ethical fairness auditing.</li>
-            <li>Specified precise latency SLO (< 1.5s single resume, < 30s batch of 100).</li>
+            <li>Run the meeting analysis to calculate engineering impact.</li>
           </ul>
         </div>
       </section>

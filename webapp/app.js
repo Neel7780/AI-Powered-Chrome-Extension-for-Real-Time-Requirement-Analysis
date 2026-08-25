@@ -215,6 +215,7 @@ function resetMeetingState() {
 
   renderClarificationsHub();
   renderRequirementsBoard();
+  renderTransformationDiff();
   resetEvaluationDisplay();
 }
 
@@ -461,6 +462,7 @@ async function synthesizeAndEvaluateRequirements() {
         currentEvaluation = evalJson.data;
         updateQualityEvaluationDisplay();
       }
+      renderTransformationDiff();
     }
   } catch (e) {
     console.error('Error generating requirements:', e);
@@ -541,6 +543,39 @@ function renderRequirementsBoard() {
   }).join('');
 }
 
+function renderTransformationDiff() {
+  const body = document.getElementById('diff-table-body');
+  const baseline = [
+    ...(currentRequirements?.baseline?.frs || []),
+    ...(currentRequirements?.baseline?.nfrs || [])
+  ];
+  const refined = [
+    ...(currentRequirements?.refined?.frs || []),
+    ...(currentRequirements?.refined?.nfrs || [])
+  ];
+
+  if (baseline.length === 0 && refined.length === 0) {
+    body.innerHTML = '<tr><td colspan="3" class="diff-empty">Run the meeting analysis to compare baseline and refined requirements.</td></tr>';
+    return;
+  }
+
+  const rowCount = Math.max(baseline.length, refined.length);
+  body.innerHTML = Array.from({ length: rowCount }, (_, index) => {
+    const before = baseline[index];
+    const after = refined[index];
+    const label = after?.title || before?.title || `Requirement ${index + 1}`;
+    const beforeText = before?.description || 'Not available';
+    const afterText = after?.description || 'Not available';
+    return `
+      <tr>
+        <td><strong>${escapeHtml(label)}</strong></td>
+        <td class="diff-bad">${escapeHtml(beforeText)}</td>
+        <td class="diff-good">${escapeHtml(afterText)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
 // 7. Quality Evaluation & Radar Chart
 function initRadarChart() {
   const ctx = document.getElementById('qualityRadarChart').getContext('2d');
@@ -551,7 +586,7 @@ function initRadarChart() {
       datasets: [
         {
           label: 'Without Clarification (Baseline)',
-          data: [25, 35, 30, 40, 22],
+          data: [0, 0, 0, 0, 0],
           backgroundColor: 'rgba(239, 68, 68, 0.2)',
           borderColor: '#ef4444',
           borderWidth: 2,
@@ -559,7 +594,7 @@ function initRadarChart() {
         },
         {
           label: 'With AI Clarification (Refined)',
-          data: [92, 94, 90, 95, 88],
+          data: [0, 0, 0, 0, 0],
           backgroundColor: 'rgba(16, 185, 129, 0.25)',
           borderColor: '#10b981',
           borderWidth: 2,
@@ -612,32 +647,32 @@ function updateQualityEvaluationDisplay() {
   document.getElementById('quality-verdict-box').innerText = refined.summary || 'Requirements refined to rigorous testable standard.';
 
   // Update Metric Breakdown
-  const bAmb = baseline.metrics?.ambiguity?.score || 78;
-  const rAmb = refined.metrics?.ambiguity?.score || 12;
+  const bAmb = baseline.metrics?.ambiguity?.score ?? 0;
+  const rAmb = refined.metrics?.ambiguity?.score ?? 0;
   document.getElementById('val-base-amb').innerText = `${bAmb}%`;
   document.getElementById('val-ref-amb').innerText = `${rAmb}%`;
   document.getElementById('bar-base-amb').style.width = `${bAmb}%`;
   document.getElementById('bar-ref-amb').style.width = `${rAmb}%`;
   document.getElementById('amb-delta').innerText = `-${bAmb - rAmb}% (Improvement)`;
 
-  const bTest = baseline.metrics?.testability?.score || 25;
-  const rTest = refined.metrics?.testability?.score || 92;
+  const bTest = baseline.metrics?.testability?.score ?? 0;
+  const rTest = refined.metrics?.testability?.score ?? 0;
   document.getElementById('val-base-test').innerText = `${bTest}%`;
   document.getElementById('val-ref-test').innerText = `${rTest}%`;
   document.getElementById('bar-base-test').style.width = `${bTest}%`;
   document.getElementById('bar-ref-test').style.width = `${rTest}%`;
   document.getElementById('test-delta').innerText = `+${rTest - bTest}% Gain`;
 
-  const bComp = baseline.metrics?.completeness?.score || 35;
-  const rComp = refined.metrics?.completeness?.score || 94;
+  const bComp = baseline.metrics?.completeness?.score ?? 0;
+  const rComp = refined.metrics?.completeness?.score ?? 0;
   document.getElementById('val-base-comp').innerText = `${bComp}%`;
   document.getElementById('val-ref-comp').innerText = `${rComp}%`;
   document.getElementById('bar-base-comp').style.width = `${bComp}%`;
   document.getElementById('bar-ref-comp').style.width = `${rComp}%`;
   document.getElementById('comp-delta').innerText = `+${rComp - bComp}% Gain`;
 
-  const bSpec = baseline.metrics?.specificity?.score || 30;
-  const rSpec = refined.metrics?.specificity?.score || 90;
+  const bSpec = baseline.metrics?.specificity?.score ?? 0;
+  const rSpec = refined.metrics?.specificity?.score ?? 0;
   document.getElementById('val-base-spec').innerText = `${bSpec}%`;
   document.getElementById('val-ref-spec').innerText = `${rSpec}%`;
   document.getElementById('bar-base-spec').style.width = `${bSpec}%`;
@@ -646,16 +681,29 @@ function updateQualityEvaluationDisplay() {
 
   // Update Radar Chart Data
   if (radarChart) {
-    radarChart.data.datasets[0].data = [bTest, bComp, bSpec, baseline.metrics?.traceability?.score || 40, 100 - bAmb];
-    radarChart.data.datasets[1].data = [rTest, rComp, rSpec, refined.metrics?.traceability?.score || 95, 100 - rAmb];
+    radarChart.data.datasets[0].data = [bTest, bComp, bSpec, baseline.metrics?.traceability?.score ?? 0, 100 - bAmb];
+    radarChart.data.datasets[1].data = [rTest, rComp, rSpec, refined.metrics?.traceability?.score ?? 0, 100 - rAmb];
     radarChart.update();
   }
 }
 
 function resetEvaluationDisplay() {
   document.getElementById('eval-baseline-oqi').innerText = '0%';
+  document.getElementById('eval-baseline-tier').innerText = 'Not evaluated';
   document.getElementById('eval-refined-oqi').innerText = '0%';
+  document.getElementById('eval-refined-tier').innerText = 'Not evaluated';
   document.getElementById('eval-delta-tag').innerText = '+0% Δ';
+  document.getElementById('quality-verdict-box').innerText = 'Run the meeting analysis to calculate requirement quality.';
+
+  const metricIds = ['amb', 'test', 'comp', 'spec'];
+  metricIds.forEach(metric => {
+    document.getElementById(`val-base-${metric}`).innerText = '0%';
+    document.getElementById(`val-ref-${metric}`).innerText = '0%';
+    document.getElementById(`bar-base-${metric}`).style.width = '0%';
+    document.getElementById(`bar-ref-${metric}`).style.width = '0%';
+    document.getElementById(`${metric}-delta`).innerText = 'Not evaluated';
+  });
+
   if (radarChart) {
     radarChart.data.datasets[0].data = [0, 0, 0, 0, 0];
     radarChart.data.datasets[1].data = [0, 0, 0, 0, 0];

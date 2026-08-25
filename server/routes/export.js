@@ -36,8 +36,8 @@ router.post('/txt', (req, res) => {
     const data = req.body;
     const markdown = exportService.generateMarkdown(data);
 
-    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="requirement-specification-report.md"');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="requirement-specification-report.txt"');
     res.send(markdown);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

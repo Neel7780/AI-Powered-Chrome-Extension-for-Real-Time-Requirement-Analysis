@@ -18,7 +18,7 @@ const requirementGenerator = require('./requirement-generator');
 class AIService {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || null;
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
     this.initGemini();
   }
 

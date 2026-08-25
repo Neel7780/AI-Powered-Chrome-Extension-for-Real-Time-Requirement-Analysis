@@ -2,7 +2,7 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-v20+-green.svg)](https://nodejs.org/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/)
-[![AI Engine](https://img.shields.io/badge/AI_Engine-Gemini_2.5_Flash-orange.svg)](https://deepmind.google/technologies/gemini/)
+[![AI Engine](https://img.shields.io/badge/AI_Engine-Gemini_3.1_Flash_Lite-orange.svg)](https://deepmind.google/technologies/gemini/)
 [![Standard Informed](https://img.shields.io/badge/Quality_Dimensions-ISO%2FIEC%2FIEEE_29148_Principles-purple.svg)](https://standards.ieee.org/)
 [![Tests](https://img.shields.io/badge/Tests-100%25_Passing_(A--K)-brightgreen.svg)]()
 
@@ -16,7 +16,7 @@
 ## 🏛️ System Architecture
 
 The platform uses a **hybrid architecture**:
-- **Contextual LLM Analysis (Google Gemini 2.5 Flash)**: Steered with requirements engineering prompt guidelines to analyze contextual dialogue, identify lexical ambiguities, and generate targeted clarification questions.
+- **Contextual LLM Analysis (Google Gemini 3.1 Flash Lite)**: Steered with requirements engineering prompt guidelines to analyze contextual dialogue, identify lexical ambiguities, and generate targeted clarification questions.
 - **Deterministic Quality Evaluation Engine**: A transparent, reproducible scoring methodology calculating mathematical quality ratios (Ambiguity, Testability, Completeness, Specificity, Traceability) across dimensions informed by ISO/IEC/IEEE 29148 principles.
 - **Zero-Downtime Offline Fallback**: If network is disconnected or API keys are absent, the system automatically falls back to deterministic local NLP heuristics.
 
@@ -39,7 +39,7 @@ flowchart TB
     end
 
     subgraph BackendAI["3. AI & Analysis Engine"]
-        LLM[Google Gemini 2.5 Flash]
+        LLM[Google Gemini 3.1 Flash Lite]
         NLP[Offline Rule-Based NLP Fallback]
         AD[Contextual Ambiguity Detector]
         QG[Clarification Question Generator]
@@ -170,7 +170,7 @@ Open **[http://localhost:3000](http://localhost:3000)** in Chrome.
 
 --- Running AI Service (Gemini / LLM) Integration Tests ---
 Active AI engine: Google Gemini LLM Connected
-✓ Test 1 Passed: Utterance analyzed via gemini-2.5-flash
+✓ Test 1 Passed: Utterance analyzed via gemini-3.1-flash-lite
 ✓ Test 2 Passed: Generated contextual clarification question
 ```
 

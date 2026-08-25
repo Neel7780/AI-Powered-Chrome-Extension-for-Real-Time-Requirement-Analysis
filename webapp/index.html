@@ -16,18 +16,6 @@
   <div class="app-layout">
     <!-- Top Navigation Bar -->
     <header class="top-nav">
-      <div class="nav-left">
-        <div class="app-logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <div class="nav-titles">
-          <h1 class="nav-title">Requirement AI Studio</h1>
-          <span class="nav-subtitle">Real-Time Zoom/Meet Transcript Requirement Engineering & Quality Evaluator</span>
-        </div>
-      </div>
-
       <div class="nav-center">
         <!-- Preset Scenario Selector -->
         <div class="scenario-selector-wrap">
@@ -45,7 +33,7 @@
         <!-- AI Engine Indicator -->
         <div class="ai-engine-badge" id="ai-engine-badge" title="AI Model Status">
           <span class="ai-dot active"></span>
-          <span id="ai-engine-label">Gemini 2.5 Flash</span>
+          <span id="ai-engine-label">Gemini 3.1 Flash Lite</span>
         </div>
 
         <div class="system-status-pill online" id="server-status-pill">
@@ -263,24 +251,24 @@
             <div class="comparison-dual-scores">
               <div class="score-card baseline">
                 <span class="score-card-label">Without Clarification</span>
-                <span class="score-card-val" id="eval-baseline-oqi">30%</span>
-                <span class="score-tier-tag poor" id="eval-baseline-tier">Poor Quality</span>
+                <span class="score-card-val" id="eval-baseline-oqi">0%</span>
+                <span class="score-tier-tag poor" id="eval-baseline-tier">Not evaluated</span>
               </div>
 
               <div class="score-arrow-wrap">
                 <span class="arrow-symbol">➔</span>
-                <span class="delta-tag" id="eval-delta-tag">+62% Δ</span>
+                <span class="delta-tag" id="eval-delta-tag">+0% Δ</span>
               </div>
 
               <div class="score-card refined">
                 <span class="score-card-label">With AI Clarification</span>
-                <span class="score-card-val" id="eval-refined-oqi">92%</span>
-                <span class="score-tier-tag excellent" id="eval-refined-tier">Excellent Quality</span>
+                <span class="score-card-val" id="eval-refined-oqi">0%</span>
+                <span class="score-tier-tag excellent" id="eval-refined-tier">Not evaluated</span>
               </div>
             </div>
 
             <div class="quality-verdict-box" id="quality-verdict-box">
-              AI Clarification resolved 100% of ambiguous predicates, establishing verifiable SLOs and comprehensive NFR coverage.
+              Run the meeting analysis to calculate requirement quality.
             </div>
           </div>
 
@@ -300,16 +288,16 @@
             <div class="audit-metric-card">
               <div class="metric-top">
                 <span class="metric-title">Ambiguity Level (Lexical Vagueness)</span>
-                <span class="metric-delta positive" id="amb-delta">-66% (Improvement)</span>
+                <span class="metric-delta positive" id="amb-delta">Not evaluated</span>
               </div>
               <div class="metric-progress-wrapper">
                 <div class="progress-label-row">
-                  <span>Baseline: <strong id="val-base-amb">78%</strong></span>
-                  <span>Refined: <strong id="val-ref-amb">12%</strong></span>
+                  <span>Baseline: <strong id="val-base-amb">0%</strong></span>
+                  <span>Refined: <strong id="val-ref-amb">0%</strong></span>
                 </div>
                 <div class="dual-meter">
-                  <div class="meter-bar baseline" id="bar-base-amb" style="width: 78%;"></div>
-                  <div class="meter-bar refined" id="bar-ref-amb" style="width: 12%;"></div>
+                  <div class="meter-bar baseline" id="bar-base-amb" style="width: 0%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-amb" style="width: 0%;"></div>
                 </div>
               </div>
             </div>
@@ -318,16 +306,16 @@
             <div class="audit-metric-card">
               <div class="metric-top">
                 <span class="metric-title">Testability & Verifiability</span>
-                <span class="metric-delta positive" id="test-delta">+67% Gain</span>
+                <span class="metric-delta positive" id="test-delta">Not evaluated</span>
               </div>
               <div class="metric-progress-wrapper">
                 <div class="progress-label-row">
-                  <span>Baseline: <strong id="val-base-test">25%</strong></span>
-                  <span>Refined: <strong id="val-ref-test">92%</strong></span>
+                  <span>Baseline: <strong id="val-base-test">0%</strong></span>
+                  <span>Refined: <strong id="val-ref-test">0%</strong></span>
                 </div>
                 <div class="dual-meter">
-                  <div class="meter-bar baseline" id="bar-base-test" style="width: 25%;"></div>
-                  <div class="meter-bar refined" id="bar-ref-test" style="width: 92%;"></div>
+                  <div class="meter-bar baseline" id="bar-base-test" style="width: 0%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-test" style="width: 0%;"></div>
                 </div>
               </div>
             </div>
@@ -336,16 +324,16 @@
             <div class="audit-metric-card">
               <div class="metric-top">
                 <span class="metric-title">Completeness & NFR Dimension Coverage</span>
-                <span class="metric-delta positive" id="comp-delta">+59% Gain</span>
+                <span class="metric-delta positive" id="comp-delta">Not evaluated</span>
               </div>
               <div class="metric-progress-wrapper">
                 <div class="progress-label-row">
-                  <span>Baseline: <strong id="val-base-comp">35%</strong></span>
-                  <span>Refined: <strong id="val-ref-comp">94%</strong></span>
+                  <span>Baseline: <strong id="val-base-comp">0%</strong></span>
+                  <span>Refined: <strong id="val-ref-comp">0%</strong></span>
                 </div>
                 <div class="dual-meter">
-                  <div class="meter-bar baseline" id="bar-base-comp" style="width: 35%;"></div>
-                  <div class="meter-bar refined" id="bar-ref-comp" style="width: 94%;"></div>
+                  <div class="meter-bar baseline" id="bar-base-comp" style="width: 0%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-comp" style="width: 0%;"></div>
                 </div>
               </div>
             </div>
@@ -354,16 +342,16 @@
             <div class="audit-metric-card">
               <div class="metric-top">
                 <span class="metric-title">Specificity & Numeric SLOs</span>
-                <span class="metric-delta positive" id="spec-delta">+60% Gain</span>
+                <span class="metric-delta positive" id="spec-delta">Not evaluated</span>
               </div>
               <div class="metric-progress-wrapper">
                 <div class="progress-label-row">
-                  <span>Baseline: <strong id="val-base-spec">30%</strong></span>
-                  <span>Refined: <strong id="val-ref-spec">90%</strong></span>
+                  <span>Baseline: <strong id="val-base-spec">0%</strong></span>
+                  <span>Refined: <strong id="val-ref-spec">0%</strong></span>
                 </div>
                 <div class="dual-meter">
-                  <div class="meter-bar baseline" id="bar-base-spec" style="width: 30%;"></div>
-                  <div class="meter-bar refined" id="bar-ref-spec" style="width: 90%;"></div>
+                  <div class="meter-bar baseline" id="bar-base-spec" style="width: 0%;"></div>
+                  <div class="meter-bar refined" id="bar-ref-spec" style="width: 0%;"></div>
                 </div>
               </div>
             </div>
@@ -383,19 +371,7 @@
                 </thead>
                 <tbody id="diff-table-body">
                   <tr>
-                    <td><strong>Performance NFR</strong></td>
-                    <td class="diff-bad">"It shouldn't be slow. Ideally quick."</td>
-                    <td class="diff-good">Single resume latency <= 1.50s (p95); Batch of 100 <= 30.0s</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Fairness NFR</strong></td>
-                    <td class="diff-bad">"We must avoid bias, especially related to gender or college."</td>
-                    <td class="diff-good">PII & college redaction + Disparate Impact Ratio in [0.80, 1.25]</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Accuracy NFR</strong></td>
-                    <td class="diff-bad">"Good enough so that HR trusts it."</td>
-                    <td class="diff-good">Top-10 Precision >= 85.0% and NDCG@10 >= 0.82</td>
+                    <td colspan="3" class="diff-empty">Run the meeting analysis to compare baseline and refined requirements.</td>
                   </tr>
                 </tbody>
               </table>

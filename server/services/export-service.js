@@ -47,14 +47,16 @@ class ExportService {
         doc.moveDown(1);
 
         // --- Quality Index Banner ---
-        const baselineOQI = evaluation.baseline?.overallQualityIndex || 38;
-        const refinedOQI = evaluation.refined?.overallQualityIndex || 92;
-        const delta = refinedOQI - baselineOQI;
+        const baselineOQI = evaluation.baseline?.overallQualityIndex ?? null;
+        const refinedOQI = evaluation.refined?.overallQualityIndex ?? null;
+        const delta = baselineOQI !== null && refinedOQI !== null ? refinedOQI - baselineOQI : null;
+        const qualityLabel = value => value === null ? 'Not evaluated' : `${value}/100`;
+        const deltaLabel = value => value === null ? 'Not evaluated' : `${value}%`;
 
         doc.rect(40, doc.y, 515, 55).fillAndStroke('#f0fdf4', '#16a34a');
         const boxY = doc.y + 12;
-        doc.fillColor('#15803d').fontSize(14).font('Helvetica-Bold').text(`Quality Index Improvement: +${delta} Points (${baselineOQI}/100 -> ${refinedOQI}/100)`, 55, boxY);
-        doc.fontSize(9).font('Helvetica').fillColor('#166534').text(`Ambiguity: -${(evaluation.comparison?.delta?.ambiguityReduction || 65)}% | Testability: +${(evaluation.comparison?.delta?.testabilityGain || 60)}% | Completeness: +${(evaluation.comparison?.delta?.completenessGain || 55)}%`, 55, boxY + 20);
+        doc.fillColor('#15803d').fontSize(14).font('Helvetica-Bold').text(`Quality Index Improvement: ${delta === null ? 'Not evaluated' : `+${delta} Points`} (${qualityLabel(baselineOQI)} -> ${qualityLabel(refinedOQI)})`, 55, boxY);
+        doc.fontSize(9).font('Helvetica').fillColor('#166534').text(`Ambiguity: ${deltaLabel(evaluation.comparison?.delta?.ambiguityReduction ?? null)} | Testability: ${deltaLabel(evaluation.comparison?.delta?.testabilityGain ?? null)} | Completeness: ${deltaLabel(evaluation.comparison?.delta?.completenessGain ?? null)}`, 55, boxY + 20);
         doc.y = boxY + 50;
         doc.moveDown(1);
 
@@ -127,14 +129,21 @@ class ExportService {
         const bMetrics = evaluation.baseline?.metrics || {};
         const rMetrics = evaluation.refined?.metrics || {};
 
+        const metricScore = (side, metric) => evaluation[side]?.metrics?.[metric]?.score ?? null;
+        const metricLabel = value => value === null ? 'Not evaluated' : `${value}%`;
+        const metricDelta = (baseline, refined, lowerIsBetter = false) => {
+          if (baseline === null || refined === null) return 'Not evaluated';
+          const value = lowerIsBetter ? baseline - refined : refined - baseline;
+          return `${value >= 0 ? '+' : ''}${value}%`;
+        };
         const metricRows = [
           ['Evaluation Dimension', 'Without Clarification (Raw)', 'With Clarification (Refined)', 'Improvement'],
-          ['Overall Quality Index', `${baselineOQI} / 100 (${evaluation.baseline?.qualityTier || 'Poor'})`, `${refinedOQI} / 100 (${evaluation.refined?.qualityTier || 'Excellent'})`, `+${delta} pts`],
-          ['Ambiguity (Lower is better)', `${bMetrics.ambiguity?.score || 78}%`, `${rMetrics.ambiguity?.score || 12}%`, `-${(bMetrics.ambiguity?.score || 78) - (rMetrics.ambiguity?.score || 12)}%`],
-          ['Completeness Coverage', `${bMetrics.completeness?.score || 35}%`, `${rMetrics.completeness?.score || 94}%`, `+${(rMetrics.completeness?.score || 94) - (bMetrics.completeness?.score || 35)}%`],
-          ['Testability / Verifiability', `${bMetrics.testability?.score || 25}%`, `${rMetrics.testability?.score || 92}%`, `+${(rMetrics.testability?.score || 92) - (bMetrics.testability?.score || 25)}%`],
-          ['Specificity & Measurability', `${bMetrics.specificity?.score || 30}%`, `${rMetrics.specificity?.score || 90}%`, `+${(rMetrics.specificity?.score || 90) - (bMetrics.specificity?.score || 30)}%`],
-          ['Traceability & Structure', `${bMetrics.traceability?.score || 40}%`, `${rMetrics.traceability?.score || 95}%`, `+${(rMetrics.traceability?.score || 95) - (bMetrics.traceability?.score || 40)}%`]
+          ['Overall Quality Index', `${qualityLabel(baselineOQI)} (${evaluation.baseline?.qualityTier || 'Not evaluated'})`, `${qualityLabel(refinedOQI)} (${evaluation.refined?.qualityTier || 'Not evaluated'})`, delta === null ? 'Not evaluated' : `${delta >= 0 ? '+' : ''}${delta} pts`],
+          ['Ambiguity (Lower is better)', metricLabel(metricScore('baseline', 'ambiguity')), metricLabel(metricScore('refined', 'ambiguity')), metricDelta(metricScore('baseline', 'ambiguity'), metricScore('refined', 'ambiguity'), true)],
+          ['Completeness Coverage', metricLabel(metricScore('baseline', 'completeness')), metricLabel(metricScore('refined', 'completeness')), metricDelta(metricScore('baseline', 'completeness'), metricScore('refined', 'completeness'))],
+          ['Testability / Verifiability', metricLabel(metricScore('baseline', 'testability')), metricLabel(metricScore('refined', 'testability')), metricDelta(metricScore('baseline', 'testability'), metricScore('refined', 'testability'))],
+          ['Specificity & Measurability', metricLabel(metricScore('baseline', 'specificity')), metricLabel(metricScore('refined', 'specificity')), metricDelta(metricScore('baseline', 'specificity'), metricScore('refined', 'specificity'))],
+          ['Traceability & Structure', metricLabel(metricScore('baseline', 'traceability')), metricLabel(metricScore('refined', 'traceability')), metricDelta(metricScore('baseline', 'traceability'), metricScore('refined', 'traceability'))]
         ];
 
         metricRows.forEach((row, rIdx) => {
@@ -176,8 +185,8 @@ class ExportService {
     const baseline = data.baseline || { frs: [], nfrs: [] };
     const clarifications = data.clarifications || [];
 
-    const baselineOQI = evaluation.baseline?.overallQualityIndex || 38;
-    const refinedOQI = evaluation.refined?.overallQualityIndex || 92;
+    const baselineOQI = evaluation.baseline?.overallQualityIndex ?? 0;
+    const refinedOQI = evaluation.refined?.overallQualityIndex ?? 0;
 
     const sections = [];
 
@@ -282,18 +291,18 @@ class ExportService {
     const baseline = data.baseline || { frs: [], nfrs: [] };
     const clarifications = data.clarifications || [];
 
-    const baselineOQI = evaluation.baseline?.overallQualityIndex || 38;
-    const refinedOQI = evaluation.refined?.overallQualityIndex || 92;
+    const baselineOQI = evaluation.baseline?.overallQualityIndex ?? 0;
+    const refinedOQI = evaluation.refined?.overallQualityIndex ?? 0;
 
     let md = `# ${title}\n`;
     md += `**Generated:** ${new Date().toLocaleString()} | **Evaluation:** Informed by ISO/IEC/IEEE 29148 Principles\n`;
     md += `*Demo Simulation: Stakeholder responses are simulated to demonstrate the clarification and refinement workflow.*\n\n`;
     md += `## 1. Executive Summary & Quality Scorecard\n\n`;
-    md += `- **Without Clarification (Baseline Quality):** ${baselineOQI} / 100 (${evaluation.baseline?.qualityTier || 'Poor'})\n`;
-    md += `- **With AI Clarification (Refined Quality):** ${refinedOQI} / 100 (${evaluation.refined?.qualityTier || 'Excellent'})\n`;
-    md += `- **Overall Quality Improvement:** +${refinedOQI - baselineOQI} Points\n`;
-    md += `- **Ambiguity Reduction:** -${(evaluation.comparison?.delta?.ambiguityReduction || 65)}%\n`;
-    md += `- **Testability Gain:** +${(evaluation.comparison?.delta?.testabilityGain || 60)}%\n\n`;
+      md += `- **Without Clarification (Baseline Quality):** ${baselineOQI === 0 ? 'Not evaluated' : `${baselineOQI} / 100`} (${evaluation.baseline?.qualityTier || 'Not evaluated'})\n`;
+      md += `- **With AI Clarification (Refined Quality):** ${refinedOQI === 0 ? 'Not evaluated' : `${refinedOQI} / 100`} (${evaluation.refined?.qualityTier || 'Not evaluated'})\n`;
+      md += `- **Overall Quality Improvement:** ${baselineOQI === 0 || refinedOQI === 0 ? 'Not evaluated' : `+${refinedOQI - baselineOQI} Points`}\n`;
+      md += `- **Ambiguity Reduction:** ${evaluation.comparison?.delta?.ambiguityReduction === undefined ? 'Not evaluated' : `-${evaluation.comparison?.delta?.ambiguityReduction}%`}\n`;
+      md += `- **Testability Gain:** ${evaluation.comparison?.delta?.testabilityGain === undefined ? 'Not evaluated' : `+${evaluation.comparison?.delta?.testabilityGain}%`}\n\n`;
 
     md += `## 2. Stakeholder Clarification Q&A Log\n\n`;
     clarifications.forEach((c, idx) => {
@@ -328,11 +337,11 @@ class ExportService {
     md += `## 5. Quality Comparison Audit Matrix\n\n`;
     md += `| Evaluation Dimension | Without Clarification | With Clarification | Improvement |\n`;
     md += `| :--- | :--- | :--- | :--- |\n`;
-    md += `| **Overall Quality Index** | ${baselineOQI}/100 | ${refinedOQI}/100 | +${refinedOQI - baselineOQI} pts |\n`;
-    md += `| **Ambiguity Score** | ${evaluation.baseline?.metrics?.ambiguity?.score || 78}% | ${evaluation.refined?.metrics?.ambiguity?.score || 12}% | -${(evaluation.baseline?.metrics?.ambiguity?.score || 78) - (evaluation.refined?.metrics?.ambiguity?.score || 12)}% |\n`;
-    md += `| **Completeness Coverage** | ${evaluation.baseline?.metrics?.completeness?.score || 35}% | ${evaluation.refined?.metrics?.completeness?.score || 94}% | +${(evaluation.refined?.metrics?.completeness?.score || 94) - (evaluation.baseline?.metrics?.completeness?.score || 35)}% |\n`;
-    md += `| **Testability & Verifiability** | ${evaluation.baseline?.metrics?.testability?.score || 25}% | ${evaluation.refined?.metrics?.testability?.score || 92}% | +${(evaluation.refined?.metrics?.testability?.score || 92) - (evaluation.baseline?.metrics?.testability?.score || 25)}% |\n`;
-    md += `| **Specificity & Measurability** | ${evaluation.baseline?.metrics?.specificity?.score || 30}% | ${evaluation.refined?.metrics?.specificity?.score || 90}% | +${(evaluation.refined?.metrics?.specificity?.score || 90) - (evaluation.baseline?.metrics?.specificity?.score || 30)}% |\n`;
+      md += `| **Overall Quality Index** | ${baselineOQI === 0 ? 'Not evaluated' : `${baselineOQI}/100`} | ${refinedOQI === 0 ? 'Not evaluated' : `${refinedOQI}/100`} | ${baselineOQI === 0 || refinedOQI === 0 ? 'Not evaluated' : `+${refinedOQI - baselineOQI} pts`} |\n`;
+      md += `| **Ambiguity Score** | ${evaluation.baseline?.metrics?.ambiguity?.score === undefined ? 'Not evaluated' : `${evaluation.baseline?.metrics?.ambiguity?.score}%`} | ${evaluation.refined?.metrics?.ambiguity?.score === undefined ? 'Not evaluated' : `${evaluation.refined?.metrics?.ambiguity?.score}%`} | ${evaluation.baseline?.metrics?.ambiguity?.score === undefined || evaluation.refined?.metrics?.ambiguity?.score === undefined ? 'Not evaluated' : `-${(evaluation.baseline?.metrics?.ambiguity?.score || 0) - (evaluation.refined?.metrics?.ambiguity?.score || 0)}%`} |\n`;
+      md += `| **Completeness Coverage** | ${evaluation.baseline?.metrics?.completeness?.score === undefined ? 'Not evaluated' : `${evaluation.baseline?.metrics?.completeness?.score}%`} | ${evaluation.refined?.metrics?.completeness?.score === undefined ? 'Not evaluated' : `${evaluation.refined?.metrics?.completeness?.score}%`} | ${evaluation.baseline?.metrics?.completeness?.score === undefined || evaluation.refined?.metrics?.completeness?.score === undefined ? 'Not evaluated' : `+${(evaluation.refined?.metrics?.completeness?.score || 0) - (evaluation.baseline?.metrics?.completeness?.score || 0)}%`} |\n`;
+      md += `| **Testability & Verifiability** | ${evaluation.baseline?.metrics?.testability?.score === undefined ? 'Not evaluated' : `${evaluation.baseline?.metrics?.testability?.score}%`} | ${evaluation.refined?.metrics?.testability?.score === undefined ? 'Not evaluated' : `${evaluation.refined?.metrics?.testability?.score}%`} | ${evaluation.baseline?.metrics?.testability?.score === undefined || evaluation.refined?.metrics?.testability?.score === undefined ? 'Not evaluated' : `+${(evaluation.refined?.metrics?.testability?.score || 0) - (evaluation.baseline?.metrics?.testability?.score || 0)}%`} |\n`;
+      md += `| **Specificity & Measurability** | ${evaluation.baseline?.metrics?.specificity?.score === undefined ? 'Not evaluated' : `${evaluation.baseline?.metrics?.specificity?.score}%`} | ${evaluation.refined?.metrics?.specificity?.score === undefined ? 'Not evaluated' : `${evaluation.refined?.metrics?.specificity?.score}%`} | ${evaluation.baseline?.metrics?.specificity?.score === undefined || evaluation.refined?.metrics?.specificity?.score === undefined ? 'Not evaluated' : `+${(evaluation.refined?.metrics?.specificity?.score || 0) - (evaluation.baseline?.metrics?.specificity?.score || 0)}%`} |\n`;
 
     return md;
   }
