@@ -12,6 +12,7 @@ from .routes.refine import router as refine_router
 from .routes.compare import router as compare_router
 from .routes.questions import router as questions_router
 from .routes.export import router as export_router
+from .routes.session import router as session_router
 from .services.llm_service import llm_service
 
 # Configure logging
@@ -45,6 +46,7 @@ app.include_router(refine_router)
 app.include_router(compare_router)
 app.include_router(questions_router)
 app.include_router(export_router)
+app.include_router(session_router)
 
 # Health & Status Endpoints
 @app.get("/health")

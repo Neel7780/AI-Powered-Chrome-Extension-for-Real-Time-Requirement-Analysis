@@ -1,9 +1,11 @@
 /**
  * Chrome Extension Background Service Worker (Manifest V3)
  * Coordinates transcript state, live messaging, and Side Panel management.
+ * Synchronizes with FastAPI backend session.
  */
 
-// Initial state
+const SERVER_URL = 'http://localhost:3000';
+
 let meetingState = {
   isMonitoring: false,
   activePlatform: null, // 'zoom' | 'meet' | 'teams' | 'simulated'
@@ -25,6 +27,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       meetingState.isMonitoring = true;
       meetingState.activePlatform = payload?.platform || 'meeting';
       broadcastToTabs({ type: 'MONITORING_STATUS_CHANGED', payload: meetingState });
+      fetch(`${SERVER_URL}/api/session/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: `Live ${meetingState.activePlatform} Meeting`, domain: 'HR Tech' })
+      }).catch(() => {});
       sendResponse({ success: true, state: meetingState });
       break;
 
@@ -35,7 +42,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'NEW_UTTERANCE':
-      // Captured from Zoom / Google Meet / Simulation
       handleNewUtterance(payload);
       sendResponse({ success: true });
       break;
@@ -68,6 +74,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       meetingState.ambiguousCount = 0;
       meetingState.qualityScores = null;
       broadcastToTabs({ type: 'MEETING_DATA_RESET', payload: meetingState });
+      fetch(`${SERVER_URL}/api/session/reset`, { method: 'POST' }).catch(() => {});
       sendResponse({ success: true, state: meetingState });
       break;
 
@@ -75,13 +82,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: 'Unknown message type' });
   }
 
-  return true; // Keep channel open for async response
+  return true;
 });
 
 function handleNewUtterance(utterance) {
   if (!utterance || !utterance.text) return;
 
-  // Avoid duplicate immediate spam
   const last = meetingState.transcript[meetingState.transcript.length - 1];
   if (last && last.text === utterance.text && last.speaker === utterance.speaker) {
     return;
@@ -105,38 +111,64 @@ function handleNewUtterance(utterance) {
     }
   }
 
-  // Broadcast to Sidepanel and active Content Script HUD
-  chrome.runtime.sendMessage({
+  // Sync with FastAPI backend
+  fetch(`${SERVER_URL}/api/session/utterance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: utterance.text,
+      speaker: utterance.speaker || 'Participant',
+      timestamp: utterance.timestamp
+    })
+  }).catch(() => {});
+
+  broadcastToTabs({
     type: 'UTTERANCE_ADDED',
     payload: {
       utterance,
-      transcriptLength: meetingState.transcript.length,
-      ambiguousCount: meetingState.ambiguousCount
+      allTranscript: meetingState.transcript,
+      allClarifications: meetingState.clarifications
     }
-  }).catch(() => {});
+  });
 }
 
 function saveClarification(clarification) {
-  const index = meetingState.clarifications.findIndex(c => c.id === clarification.id);
-  if (index >= 0) {
-    meetingState.clarifications[index] = clarification;
+  const index = meetingState.clarifications.findIndex(c => c.id === clarification.id || c.triggeredBy === clarification.triggeredBy);
+  if (index !== -1) {
+    meetingState.clarifications[index] = {
+      ...meetingState.clarifications[index],
+      selectedResponse: clarification.selectedResponse
+    };
   } else {
     meetingState.clarifications.push(clarification);
   }
 
-  chrome.runtime.sendMessage({
+  // Sync answer to FastAPI backend
+  fetch(`${SERVER_URL}/api/session/clarify/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clarificationId: clarification.id || '',
+      selectedResponse: clarification.selectedResponse || ''
+    })
+  }).catch(() => {});
+
+  broadcastToTabs({
     type: 'CLARIFICATION_UPDATED',
     payload: {
       clarification,
       allClarifications: meetingState.clarifications
     }
-  }).catch(() => {});
+  });
 }
 
-function broadcastToTabs(msg) {
-  chrome.tabs.query({}, (tabs) => {
+function broadcastToTabs(message) {
+  chrome.tabs?.query({}, (tabs) => {
+    if (!tabs) return;
     tabs.forEach(tab => {
-      chrome.tabs.sendMessage(tab.id, msg).catch(() => {});
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+      }
     });
   });
 }

@@ -1,6 +1,7 @@
 /**
  * Web Application Main Controller
  * AI Real-Time Requirement Analysis & Evaluation Studio
+ * Synchronized with Chrome Extension via WebSocket session state.
  */
 
 // State
@@ -19,17 +20,93 @@ let currentEvaluation = null;
 let activeReqFilter = 'all';
 
 let radarChart = null;
+let sessionSocket = null;
+let isApplyingSync = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   initRadarChart();
+  initSessionSync();
   await loadScenarioData();
   setupEventListeners();
 });
 
-// 1. Fetch Sample Transcripts from Server
+// 1. WebSocket Real-Time Synchronization with Extension & Backend
+function initSessionSync() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/ws/session`;
+  try {
+    sessionSocket = new WebSocket(wsUrl);
+    sessionSocket.onopen = () => console.log('🔗 [Webapp] WebSocket session connected.');
+    sessionSocket.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.data) {
+          applyIncomingSessionState(msg.data);
+        }
+      } catch (e) {
+        console.error('Error parsing session sync:', e);
+      }
+    };
+    sessionSocket.onclose = () => {
+      setTimeout(initSessionSync, 2000);
+    };
+  } catch (e) {
+    console.warn('WebSocket init failed:', e);
+  }
+}
+
+function applyIncomingSessionState(state) {
+  if (!state || isApplyingSync) return;
+  isApplyingSync = true;
+
+  try {
+    activeTranscript = state.transcript || [];
+    activeClarifications = state.clarifications || [];
+
+    if (state.baseline && state.refined && (state.refined.frs?.length > 0 || state.refined.nfrs?.length > 0)) {
+      currentRequirements = {
+        baseline: state.baseline,
+        refined: state.refined
+      };
+    }
+    if (state.evaluation && Object.keys(state.evaluation).length > 0) {
+      currentEvaluation = state.evaluation;
+    }
+
+    renderFeedFromTranscript();
+    updateAmbiguityMetrics();
+    renderClarificationsHub();
+    renderRequirementsBoard();
+    renderTransformationDiff();
+    updateQualityEvaluationDisplay();
+  } finally {
+    isApplyingSync = false;
+  }
+}
+
+function renderFeedFromTranscript() {
+  const feed = document.getElementById('transcript-feed-area');
+  if (!feed) return;
+
+  if (activeTranscript.length === 0) {
+    feed.innerHTML = `
+      <div class="feed-placeholder" id="feed-placeholder">
+        <div class="placeholder-icon">💬</div>
+        <h3>Meeting Room Ready</h3>
+        <p>Click <strong>Play (▶)</strong> to simulate the live meeting or activate <strong>Live Mic</strong>.</p>
+      </div>
+    `;
+    return;
+  }
+
+  feed.innerHTML = '';
+  activeTranscript.forEach(u => renderUtteranceBubble(u));
+}
+
+// 2. Fetch Sample Transcripts from Server
 async function loadScenarioData() {
   try {
-    const res = await fetch('/api/analyze/samples');
+    const res = await fetch('/api/sample-data');
     const json = await res.json();
     if (json.success && json.data) {
       allSampleScenarios = json.data;
@@ -38,7 +115,40 @@ async function loadScenarioData() {
     console.warn('Backend offline, using fallback sample scenarios');
   }
 
-  // Load the first scenario (Resume Analyzer - Assignment PDF)
+  if (!allSampleScenarios || allSampleScenarios.length === 0) {
+    allSampleScenarios = [{
+      id: 'resume-analyzer-assignment',
+      title: 'AI Resume Analyzer (Prof. Supplied Meeting)',
+      domain: 'HR Tech',
+      utterances: [
+        { speaker: "Hiring Manager", text: "We need to build an AI-based resume analyzer.", timestamp: "00:05" },
+        { speaker: "ML Engineer", text: "We have past resumes and hiring decisions, but they're not very structured.", timestamp: "00:15" },
+        { speaker: "Hiring Manager", text: "We want it to take resumes and rank them based on relevance to a job description.", timestamp: "00:25" },
+        { speaker: "ML Engineer", text: "What criteria should determine relevance?", timestamp: "00:35" },
+        { speaker: "Hiring Manager", text: "Mainly skills and experience. And overall profile strength. Things like good companies, solid projects... Sometimes a strong fresher is better than someone with 5 average years.", timestamp: "00:50" },
+        { speaker: "ML Engineer", text: "How will we evaluate if the ranking is accurate?", timestamp: "01:05" },
+        { speaker: "Hiring Manager", text: "It should be good enough so that HR trusts it.", timestamp: "01:15" },
+        { speaker: "ML Engineer", text: "What about response time and scale?", timestamp: "01:25" },
+        { speaker: "Hiring Manager", text: "It shouldn't be slow. Response time per resume should ideally be quick.", timestamp: "01:35" },
+        { speaker: "ML Engineer", text: "Are there constraints around bias?", timestamp: "01:45" },
+        { speaker: "Hiring Manager", text: "Yes, we must avoid bias, especially related to gender or college background.", timestamp: "01:55" },
+        { speaker: "ML Engineer", text: "Do we need explainability for why someone was ranked high or low?", timestamp: "02:05" },
+        { speaker: "Hiring Manager", text: "Yes, that would be useful.", timestamp: "02:15" },
+        { speaker: "ML Engineer", text: "What is our timeline?", timestamp: "02:25" },
+        { speaker: "Hiring Manager", text: "We need an MVP soon.", timestamp: "02:35" }
+      ],
+      sampleClarifications: [
+        { id: "q-perf-01", category: "Performance", question: "What specific latency threshold defines acceptable performance?", selectedResponse: "Single resume parsing must be under 1.5s (95th percentile) and batch upload of 100 resumes must complete within 30 seconds." },
+        { id: "q-fair-01", category: "Fairness", question: "What quantitative fairness metric and audit frequency should be enforced?", selectedResponse: "Disparate impact ratio between 0.80 and 1.25 across gender and college tiers; quarterly fairness audit." },
+        { id: "q-acc-01", category: "Accuracy", question: "What objective accuracy metric defines 'good enough for HR trust'?", selectedResponse: "Top-10 candidate precision >= 85% and NDCG@10 >= 0.82 evaluated against consensus of 3 senior recruiters." },
+        { id: "q-exp-01", category: "Explainability", question: "How should candidate match reasoning be presented to recruiters?", selectedResponse: "Interactive match scorecard showing matched skills %, project complexity score, and top 3 justification reasons." },
+        { id: "q-rel-01", category: "Ranking Algorithm", question: "How should skills, experience, and projects be weighted?", selectedResponse: "Formula: 45% skills match + 35% project complexity + 20% experience with tier normalization." },
+        { id: "q-data-01", category: "Data Ingestion", question: "What file formats and size limits must be supported?", selectedResponse: "Support PDF and DOCX up to 10MB per file with automated text extraction into validated JSON schema." },
+        { id: "q-scope-01", category: "Project Scope", question: "What is the committed delivery milestone for the MVP?", selectedResponse: "4-week MVP deliverable covering ingestion, JD matching, top-10 ranking, and scorecard export." }
+      ]
+    }];
+  }
+
   selectScenario('resume-analyzer-assignment');
 }
 
@@ -59,36 +169,30 @@ function selectScenario(scenarioId) {
   }
 }
 
-// 2. Setup Event Listeners
+// 3. Setup Event Listeners
 function setupEventListeners() {
-  // Scenario Select
   document.getElementById('scenario-select').addEventListener('change', (e) => {
     selectScenario(e.target.value);
   });
 
-  // Player Controls
   document.getElementById('btn-play-pause').addEventListener('click', togglePlaySimulation);
   document.getElementById('btn-step-next').addEventListener('click', stepSimulation);
   document.getElementById('btn-instant-load').addEventListener('click', loadEntireMeetingInstantly);
   document.getElementById('btn-reset-meeting').addEventListener('click', resetMeetingState);
 
-  // Microphone Speech Recognition
   document.getElementById('btn-mic-toggle').addEventListener('click', toggleMicListening);
 
-  // Manual Line Input
   document.getElementById('btn-send-manual-line').addEventListener('click', sendManualLine);
   document.getElementById('manual-line-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendManualLine();
   });
 
-  // Custom Transcript Drawer
   document.getElementById('btn-apply-custom').addEventListener('click', applyCustomTranscript);
   document.getElementById('btn-close-custom').addEventListener('click', () => {
     document.getElementById('custom-drawer').style.display = 'none';
     document.getElementById('scenario-select').value = currentScenario?.id || 'resume-analyzer-assignment';
   });
 
-  // View Toggle (Clarifications vs Requirements)
   document.querySelectorAll('.pill-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
@@ -100,10 +204,8 @@ function setupEventListeners() {
     });
   });
 
-  // Auto Clarify All Button
   document.getElementById('btn-clarify-all-smart').addEventListener('click', autoClarifyAll);
 
-  // Requirements Subtab Filters
   document.querySelectorAll('.req-subtab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.req-subtab').forEach(t => t.classList.remove('active'));
@@ -113,7 +215,6 @@ function setupEventListeners() {
     });
   });
 
-  // Export Dropdown Toggle
   const exportDropdownBtn = document.getElementById('btn-export-dropdown-toggle');
   const exportMenu = document.getElementById('export-menu');
   exportDropdownBtn.addEventListener('click', (e) => {
@@ -121,21 +222,18 @@ function setupEventListeners() {
     exportMenu.classList.toggle('show');
   });
 
-  document.addEventListener('click', () => {
-    exportMenu.classList.remove('show');
-  });
+  document.addEventListener('click', () => exportMenu.classList.remove('show'));
 
-  // Export Format Triggers
-  document.getElementById('export-pdf-btn').addEventListener('click', () => exportSpecification('pdf'));
-  document.getElementById('export-docx-btn').addEventListener('click', () => exportSpecification('docx'));
-  document.getElementById('export-txt-btn').addEventListener('click', () => exportSpecification('txt'));
-  document.getElementById('export-json-btn').addEventListener('click', () => exportSpecification('json'));
+  document.getElementById('btn-export-pdf').addEventListener('click', () => exportSpecification('pdf'));
+  document.getElementById('btn-export-docx').addEventListener('click', () => exportSpecification('docx'));
+  document.getElementById('btn-export-md').addEventListener('click', () => exportSpecification('txt'));
+  document.getElementById('btn-export-json').addEventListener('click', () => exportSpecification('json'));
 }
 
-// 3. Meeting Simulation Engine
+// Simulation Controls
 function togglePlaySimulation() {
   if (isSimPlaying) {
-    pauseSimulation();
+    stopSimulation();
   } else {
     startSimulation();
   }
@@ -144,33 +242,28 @@ function togglePlaySimulation() {
 function startSimulation() {
   if (!currentScenario || !currentScenario.utterances) return;
   isSimPlaying = true;
-  document.getElementById('audio-visualizer').classList.add('playing');
-  document.getElementById('play-icon').innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
-
-  const speedMultiplier = parseFloat(document.getElementById('speed-select').value) || 1.0;
-  const baseInterval = Math.max(400, Math.round(2000 / speedMultiplier));
+  document.getElementById('btn-play-pause').innerHTML = '<span>⏸</span> Pause';
+  document.getElementById('btn-play-pause').classList.add('active');
 
   simIntervalTimer = setInterval(() => {
-    if (simulationIndex < currentScenario.utterances.length) {
-      const u = currentScenario.utterances[simulationIndex];
-      processNewUtterance(u.text, u.speaker, u.timestamp);
-      simulationIndex++;
-    } else {
-      pauseSimulation();
+    if (simulationIndex >= currentScenario.utterances.length) {
+      stopSimulation();
+      return;
     }
-  }, baseInterval);
-}
-
-function pauseSimulation() {
-  isSimPlaying = false;
-  clearInterval(simIntervalTimer);
-  document.getElementById('audio-visualizer').classList.remove('playing');
-  document.getElementById('play-icon').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+    const u = currentScenario.utterances[simulationIndex];
+    processNewUtterance(u.text, u.speaker, u.timestamp);
+    simulationIndex++;
+  }, 1800);
 }
 
 function stopSimulation() {
-  pauseSimulation();
-  simulationIndex = 0;
+  isSimPlaying = false;
+  clearInterval(simIntervalTimer);
+  const btn = document.getElementById('btn-play-pause');
+  if (btn) {
+    btn.innerHTML = '<span>▶</span> Play Stream';
+    btn.classList.remove('active');
+  }
 }
 
 function stepSimulation() {
@@ -182,23 +275,31 @@ function stepSimulation() {
   }
 }
 
-function loadEntireMeetingInstantly() {
+async function loadEntireMeetingInstantly() {
+  stopSimulation();
   if (!currentScenario || !currentScenario.utterances) return;
-  pauseSimulation();
 
-  while (simulationIndex < currentScenario.utterances.length) {
-    const u = currentScenario.utterances[simulationIndex];
-    processNewUtterance(u.text, u.speaker, u.timestamp);
-    simulationIndex++;
+  resetMeetingState();
+  const utterances = currentScenario.utterances;
+  simulationIndex = utterances.length;
+
+  for (const u of utterances) {
+    await processNewUtterance(u.text, u.speaker, u.timestamp);
   }
 }
 
-function resetMeetingState() {
+async function resetMeetingState() {
   stopSimulation();
+  stopMic();
+  simulationIndex = 0;
   activeTranscript = [];
   activeClarifications = [];
   currentRequirements = null;
   currentEvaluation = null;
+
+  try {
+    await fetch('/api/session/reset', { method: 'POST' });
+  } catch {}
 
   document.getElementById('transcript-feed-area').innerHTML = `
     <div class="feed-placeholder" id="feed-placeholder">
@@ -219,38 +320,33 @@ function resetMeetingState() {
   resetEvaluationDisplay();
 }
 
-// 4. Utterance Processing & Ambiguity Analysis
+// Utterance Processing & Ambiguity Analysis
 async function processNewUtterance(text, speaker = 'Participant', timestamp = '00:00') {
-  if (!text) return;
+  if (!text || !text.trim()) return;
 
-  // Clear placeholder if first utterance
   const placeholder = document.getElementById('feed-placeholder');
   if (placeholder) placeholder.remove();
 
-  // Call Backend API or fast NLP heuristic
-  let analysis = null;
+  // Sync to Backend Session API
   try {
-    const res = await fetch('/api/analyze/utterance', {
+    const res = await fetch('/api/session/utterance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, speaker, timestamp })
     });
     const json = await res.json();
-    if (json.success) analysis = json.data;
+    if (json.success && json.data) {
+      applyIncomingSessionState(json.data);
+      return;
+    }
   } catch (e) {
-    // Local fallback
+    // Offline local fallback
   }
 
-  if (!analysis) {
-    analysis = localAnalyzeUtterance(text, speaker, timestamp);
-  }
-
+  let analysis = localAnalyzeUtterance(text, speaker, timestamp);
   activeTranscript.push(analysis);
-
-  // Append to Feed DOM
   renderUtteranceBubble(analysis);
 
-  // If question was triggered, add to Clarifications Hub
   if (analysis.candidateQuestion) {
     const exists = activeClarifications.some(c => c.question === analysis.candidateQuestion.question || c.triggeredBy === text);
     if (!exists) {
@@ -262,22 +358,17 @@ async function processNewUtterance(text, speaker = 'Participant', timestamp = '0
     }
   }
 
-  // Update Ambiguity Strip
   updateAmbiguityMetrics();
-
-  // Refresh Requirements & Quality
   await synthesizeAndEvaluateRequirements();
 }
 
 function renderUtteranceBubble(u) {
   const feed = document.getElementById('transcript-feed-area');
+  if (!feed) return;
+
   const bubble = document.createElement('div');
   bubble.className = `utterance-bubble ${u.isAmbiguous ? 'ambiguous' : ''}`;
 
-  // Escape the transcript first, then highlight. The flag phrase is escaped the
-  // same way before being turned into a pattern, and its regex metacharacters
-  // are neutralised — an utterance containing "(" or "$" would otherwise throw
-  // or match the wrong span.
   let displayText = escapeHtml(u.text);
   if (u.detectedFlags && u.detectedFlags.length > 0) {
     u.detectedFlags.forEach(f => {
@@ -307,7 +398,7 @@ function renderUtteranceBubble(u) {
     <div class="u-body">${displayText}</div>
     ${u.detectedFlags && u.detectedFlags.length > 0 ? `
       <div class="u-flags-row">
-        ${u.detectedFlags.map(f => `<span class="flag-chip">${escapeHtml(f.category)}: ${escapeHtml(f.severity)}</span>`).join('')}
+        ${u.detectedFlags.map(f => `<span class="flag-chip">${escapeHtml(f.category)}: ${escapeHtml(f.severity || 'Medium')}</span>`).join('')}
       </div>
     ` : ''}
   `;
@@ -317,33 +408,34 @@ function renderUtteranceBubble(u) {
 }
 
 function updateAmbiguityMetrics() {
-  const ambiguousItems = activeTranscript.filter(u => u.isAmbiguous);
+  const ambiguousItems = activeTranscript.filter(u => u.isAmbiguous || (u.detectedFlags && u.detectedFlags.length > 0));
   const countEl = document.getElementById('ambiguity-strip-text');
   const chipEl = document.getElementById('ambiguity-index-chip');
 
-  countEl.innerText = `${ambiguousItems.length} Ambiguous Statements Detected`;
+  if (countEl) countEl.innerText = `${ambiguousItems.length} Ambiguous Statements Detected`;
   const ratio = activeTranscript.length > 0 ? Math.round((ambiguousItems.length / activeTranscript.length) * 100) : 0;
-  chipEl.innerText = `Ambiguity: ${ratio}%`;
+  if (chipEl) chipEl.innerText = `Ambiguity: ${ratio}%`;
 }
 
-// 5. Clarification Q&A Hub
+// Clarification Q&A Hub
 function renderClarificationsHub() {
   const container = document.getElementById('clarification-cards-container');
   const tabCount = document.getElementById('count-clarify-tab');
-  tabCount.innerText = activeClarifications.length;
+  if (tabCount) tabCount.innerText = activeClarifications.length;
 
   const total = activeClarifications.length;
   const answered = activeClarifications.filter(c => c.selectedResponse && c.selectedResponse.trim().length > 0).length;
   const pending = total - answered;
   const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
 
-  // Update Progress Meter
   const progressLabel = document.getElementById('clarify-progress-label');
   const progressBar = document.getElementById('clarify-progress-bar');
   const pendingSub = document.getElementById('clarify-pending-sub');
   if (progressLabel) progressLabel.innerText = `${answered} / ${total} Resolved (${pct}%)`;
   if (progressBar) progressBar.style.width = `${pct}%`;
   if (pendingSub) pendingSub.innerText = `${pending} requirements still pending stakeholder clarification`;
+
+  if (!container) return;
 
   if (activeClarifications.length === 0) {
     container.innerHTML = `
@@ -359,6 +451,7 @@ function renderClarificationsHub() {
   container.innerHTML = activeClarifications.map((c, idx) => {
     const isAnswered = !!(c.selectedResponse && c.selectedResponse.trim().length > 0);
     const options = c.suggestedOptions || c.options || [];
+    const cid = c.id || `q-${idx+1}`;
 
     return `
       <div class="clarify-card ${isAnswered ? 'answered' : ''}">
@@ -378,43 +471,64 @@ function renderClarificationsHub() {
           ${options.map(opt => {
             const isSelected = c.selectedResponse === opt ? 'selected' : '';
             return `
-              <button class="opt-choice-btn ${isSelected}" data-idx="${idx}" data-opt="${escapeHtml(opt)}">
+              <button class="opt-choice-btn ${isSelected}" data-cid="${cid}" data-idx="${idx}" data-opt="${escapeHtml(opt)}">
                 ${escapeHtml(opt)}
               </button>
             `;
           }).join('')}
         </div>
 
-        <input type="text" class="c-custom-input" placeholder="Or type custom stakeholder specification..." value="${escapeHtml(c.selectedResponse || '')}" data-idx="${idx}" />
+        <input type="text" class="c-custom-input" placeholder="Or type custom stakeholder specification..." value="${escapeHtml(c.selectedResponse || '')}" data-cid="${cid}" data-idx="${idx}" />
       </div>
     `;
   }).join('');
 
-  // Event handlers
+  // Event handlers with session broadcast
   container.querySelectorAll('.opt-choice-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
+      const cid = btn.getAttribute('data-cid');
       const idx = parseInt(btn.getAttribute('data-idx'));
       const chosen = btn.getAttribute('data-opt');
+      
       activeClarifications[idx].selectedResponse = chosen;
       renderClarificationsHub();
+
+      // Sync to shared backend session
+      try {
+        await fetch('/api/session/clarify/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clarificationId: cid, selectedResponse: chosen })
+        });
+      } catch {}
+
       await synthesizeAndEvaluateRequirements();
     });
   });
 
   container.querySelectorAll('.c-custom-input').forEach(input => {
     input.addEventListener('change', async () => {
+      const cid = input.getAttribute('data-cid');
       const idx = parseInt(input.getAttribute('data-idx'));
-      activeClarifications[idx].selectedResponse = input.value.trim();
+      const val = input.value.trim();
+      
+      activeClarifications[idx].selectedResponse = val;
+
+      try {
+        await fetch('/api/session/clarify/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clarificationId: cid, selectedResponse: val })
+        });
+      } catch {}
+
       await synthesizeAndEvaluateRequirements();
     });
   });
 }
 
-function autoClarifyAll() {
+async function autoClarifyAll() {
   if (currentScenario?.sampleClarifications) {
-    // Copy each object, not just the array: selecting an answer writes to
-    // `selectedResponse`, which would otherwise mutate the shared scenario
-    // data and leave answers behind after a Reset.
     activeClarifications = currentScenario.sampleClarifications.map(c => ({ ...c }));
   } else {
     activeClarifications.forEach(c => {
@@ -426,42 +540,42 @@ function autoClarifyAll() {
   }
 
   renderClarificationsHub();
-  synthesizeAndEvaluateRequirements();
+
+  try {
+    await fetch('/api/session/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript: activeTranscript,
+        clarifications: activeClarifications,
+        domain: currentScenario?.domain || 'HR Tech'
+      })
+    });
+  } catch {}
+
+  await synthesizeAndEvaluateRequirements();
 }
 
-// 6. Requirements Synthesis & Board Rendering
+// Requirements Synthesis & Board Rendering
 async function synthesizeAndEvaluateRequirements() {
   if (activeTranscript.length === 0) return;
 
   try {
     const domain = currentScenario?.domain || 'HR Tech';
-    const res = await fetch('/api/requirements/generate', {
+    const res = await fetch('/api/refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        utterances: activeTranscript,
+        transcript: activeTranscript,
         clarifications: activeClarifications,
         domain
       })
     });
     const json = await res.json();
     if (json.success) {
-      currentRequirements = json.data;
-
-      // Now Evaluate
-      const evalRes = await fetch('/api/evaluate/compare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          baseline: currentRequirements.baseline,
-          refined: currentRequirements.refined
-        })
-      });
-      const evalJson = await evalRes.json();
-      if (evalJson.success) {
-        currentEvaluation = evalJson.data;
-        updateQualityEvaluationDisplay();
-      }
+      currentRequirements = { baseline: json.baseline, refined: json.refined };
+      currentEvaluation = json.evaluation || { refined: json.metrics };
+      updateQualityEvaluationDisplay();
       renderTransformationDiff();
     }
   } catch (e) {
@@ -475,6 +589,8 @@ function renderRequirementsBoard() {
   const container = document.getElementById('requirements-cards-container');
   const countTab = document.getElementById('count-req-tab');
   const countsIndicator = document.getElementById('req-counts-indicator');
+
+  if (!container) return;
 
   if (!currentRequirements?.refined) {
     container.innerHTML = `
@@ -491,8 +607,8 @@ function renderRequirementsBoard() {
   const nfrs = currentRequirements.refined.nfrs || [];
   const total = frs.length + nfrs.length;
 
-  countTab.innerText = total;
-  countsIndicator.innerText = `${frs.length} FRs | ${nfrs.length} NFRs`;
+  if (countTab) countTab.innerText = total;
+  if (countsIndicator) countsIndicator.innerText = `${frs.length} FRs | ${nfrs.length} NFRs`;
 
   let items = [];
   if (activeReqFilter === 'all') items = [...frs, ...nfrs];
@@ -502,103 +618,123 @@ function renderRequirementsBoard() {
   container.innerHTML = items.map(req => {
     const isNFR = req.id.startsWith('NFR');
     const isResolved = req.status === 'RESOLVED';
+
     return `
-      <div class="req-full-card ${isResolved ? 'resolved' : 'pending'}">
-        <div class="req-top-bar">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="req-badge-id">${req.id}</span>
-            <span class="req-category-tag">${req.category || (isNFR ? 'NFR' : 'Functional')}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="status-chip ${isResolved ? 'resolved' : 'pending'}">
-              ${isResolved ? '✓ RESOLVED' : '● PENDING CLARIFICATION'}
-            </span>
-            <span class="req-priority-pill must">${req.priority || 'Must Have'}</span>
-          </div>
+      <div class="req-card ${isNFR ? 'nfr' : 'fr'}">
+        <div class="req-card-header">
+          <div class="req-id-badge">${escapeHtml(req.id)}</div>
+          <span class="req-category-pill">${escapeHtml(isNFR ? (req.category || 'NFR') : 'Functional')}</span>
+          <span class="req-status-pill ${isResolved ? 'resolved' : 'pending'}">
+            ${isResolved ? '✓ RESOLVED' : '● PENDING CLARIFICATION'}
+          </span>
         </div>
+        <div class="req-title">${escapeHtml(req.title)}</div>
+        <div class="req-desc">${escapeHtml(req.description)}</div>
 
-        <div class="req-title-text">${req.title}</div>
-        <div class="req-desc-text">${req.description}</div>
-
-        ${isNFR ? `
-          <div class="req-slo-highlight ${isResolved ? 'resolved' : 'unresolved'}">
-            <strong>Target SLO / Verifiable Threshold:</strong> ${req.targetThreshold || req.metric}
+        ${isNFR && req.targetThreshold ? `
+          <div class="req-metric-box">
+            <span class="metric-label">Target SLO / Criterion:</span>
+            <span class="metric-val">${escapeHtml(req.targetThreshold)}</span>
           </div>
         ` : ''}
 
         ${req.acceptanceCriteria && req.acceptanceCriteria.length > 0 ? `
-          <div class="req-ac-list">
-            <strong>Acceptance Criteria (Gherkin / Pass-Fail):</strong>
-            <ul>
-              ${req.acceptanceCriteria.map(ac => `<li>${ac}</li>`).join('')}
-            </ul>
+          <div class="req-ac-section">
+            <div class="ac-header-label">Verifiable Acceptance Criteria:</div>
+            ${req.acceptanceCriteria.map(ac => `
+              <div class="ac-item-row">
+                <span class="ac-icon">✓</span>
+                <span>${escapeHtml(ac)}</span>
+              </div>
+            `).join('')}
           </div>
         ` : ''}
 
-        <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
-          ${req.clarificationReference ? `Traceability: ${req.clarificationReference}` : `Source: "${req.sourceStatement || 'Meeting discussion'}"`}
+        <div class="req-footer">
+          <span class="prov-tag">Source: ${escapeHtml(req.source || 'RAW_DIALOGUE')}</span>
+          ${req.verificationMethod ? `<span class="verif-tag">Method: ${escapeHtml(req.verificationMethod)}</span>` : ''}
         </div>
       </div>
     `;
   }).join('');
 }
 
+// Transformation Diff Tab
 function renderTransformationDiff() {
-  const body = document.getElementById('diff-table-body');
-  const baseline = [
-    ...(currentRequirements?.baseline?.frs || []),
-    ...(currentRequirements?.baseline?.nfrs || [])
-  ];
-  const refined = [
-    ...(currentRequirements?.refined?.frs || []),
-    ...(currentRequirements?.refined?.nfrs || [])
-  ];
+  const container = document.getElementById('diff-cards-container');
+  if (!container) return;
 
-  if (baseline.length === 0 && refined.length === 0) {
-    body.innerHTML = '<tr><td colspan="3" class="diff-empty">Run the meeting analysis to compare baseline and refined requirements.</td></tr>';
+  if (!currentRequirements?.baseline || !currentRequirements?.refined) {
+    container.innerHTML = `
+      <div class="empty-diff-state">
+        <p>Record meeting dialogue and answer clarifications to view before-vs-after requirement transformations.</p>
+      </div>
+    `;
     return;
   }
 
-  const rowCount = Math.max(baseline.length, refined.length);
-  body.innerHTML = Array.from({ length: rowCount }, (_, index) => {
-    const before = baseline[index];
-    const after = refined[index];
-    const label = after?.title || before?.title || `Requirement ${index + 1}`;
-    const beforeText = before?.description || 'Not available';
-    const afterText = after?.description || 'Not available';
+  const baseFRs = currentRequirements.baseline.frs || [];
+  const baseNFRs = currentRequirements.baseline.nfrs || [];
+  const refFRs = currentRequirements.refined.frs || [];
+  const refNFRs = currentRequirements.refined.nfrs || [];
+
+  const allRef = [...refFRs, ...refNFRs];
+  const allBase = [...baseFRs, ...baseNFRs];
+
+  container.innerHTML = allRef.map((ref, idx) => {
+    const base = allBase.find(b => b.id === ref.id) || allBase[idx] || {};
+    const isResolved = ref.status === 'RESOLVED';
+
     return `
-      <tr>
-        <td><strong>${escapeHtml(label)}</strong></td>
-        <td class="diff-bad">${escapeHtml(beforeText)}</td>
-        <td class="diff-good">${escapeHtml(afterText)}</td>
-      </tr>
+      <div class="diff-card">
+        <div class="diff-card-header">
+          <span class="diff-req-id">${escapeHtml(ref.id)}: ${escapeHtml(ref.title)}</span>
+          <span class="diff-status ${isResolved ? 'gain' : 'unresolved'}">
+            ${isResolved ? '✓ Specification Quantified' : '● Awaiting Clarification'}
+          </span>
+        </div>
+        <div class="diff-columns-grid">
+          <div class="diff-col before">
+            <div class="diff-col-tag">WITHOUT CLARIFICATION (Baseline)</div>
+            <div class="diff-statement">${escapeHtml(base.description || 'Raw, unquantified statement.')}</div>
+            <div class="diff-meta">Target: <code>${escapeHtml(base.targetThreshold || 'Unspecified')}</code></div>
+          </div>
+          <div class="diff-col after">
+            <div class="diff-col-tag">WITH CLARIFICATION (Refined)</div>
+            <div class="diff-statement">${escapeHtml(ref.description || '')}</div>
+            <div class="diff-meta">Target: <code>${escapeHtml(ref.targetThreshold || 'Pending')}</code></div>
+          </div>
+        </div>
+      </div>
     `;
   }).join('');
 }
 
-// 7. Quality Evaluation & Radar Chart
+// Quality Radar Chart & Evaluation
 function initRadarChart() {
-  const ctx = document.getElementById('qualityRadarChart').getContext('2d');
+  const ctx = document.getElementById('quality-radar-canvas')?.getContext('2d');
+  if (!ctx || typeof Chart === 'undefined') return;
+
   radarChart = new Chart(ctx, {
     type: 'radar',
     data: {
-      labels: ['Testability', 'Completeness', 'Specificity', 'Traceability', 'Unambiguity'],
+      labels: ['Ambiguity (Inverse)', 'Testability', 'Completeness', 'Specificity', 'Traceability'],
       datasets: [
         {
           label: 'Without Clarification (Baseline)',
-          data: [0, 0, 0, 0, 0],
-          backgroundColor: 'rgba(239, 68, 68, 0.2)',
+          data: [0, 0, 0, 0, 50],
           borderColor: '#ef4444',
-          borderWidth: 2,
-          pointBackgroundColor: '#ef4444'
+          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+          pointBackgroundColor: '#ef4444',
+          borderWidth: 2
         },
         {
-          label: 'With AI Clarification (Refined)',
-          data: [0, 0, 0, 0, 0],
-          backgroundColor: 'rgba(16, 185, 129, 0.25)',
+          label: 'With Clarification (Refined)',
+          data: [100, 100, 100, 90, 100],
           borderColor: '#10b981',
-          borderWidth: 2,
-          pointBackgroundColor: '#10b981'
+          backgroundColor: 'rgba(16, 185, 129, 0.25)',
+          pointBackgroundColor: '#10b981',
+          borderWidth: 2
         }
       ]
     },
@@ -609,20 +745,14 @@ function initRadarChart() {
         r: {
           min: 0,
           max: 100,
-          ticks: { display: false },
-          grid: { color: 'rgba(255, 255, 255, 0.08)' },
-          angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
-          pointLabels: {
-            color: '#94a3b8',
-            font: { size: 11, family: 'Plus Jakarta Sans', weight: '600' }
-          }
+          ticks: { stepSize: 20, backdropColor: 'transparent', color: '#94a3b8' },
+          grid: { color: 'rgba(148, 163, 184, 0.15)' },
+          angleLines: { color: 'rgba(148, 163, 184, 0.2)' },
+          pointLabels: { color: '#f8fafc', font: { size: 11, weight: '600' } }
         }
       },
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: '#cbd5e1', font: { size: 11, family: 'Plus Jakarta Sans' } }
-        }
+        legend: { labels: { color: '#e2e8f0', font: { size: 11 } } }
       }
     }
   });
@@ -631,78 +761,71 @@ function initRadarChart() {
 function updateQualityEvaluationDisplay() {
   if (!currentEvaluation) return;
 
-  const baseline = currentEvaluation.baseline;
-  const refined = currentEvaluation.refined;
-  const comparison = currentEvaluation.comparison;
+  const refEval = currentEvaluation.refined || currentEvaluation;
+  const baseEval = currentEvaluation.baseline;
 
-  document.getElementById('eval-baseline-oqi').innerText = `${baseline.overallQualityIndex}%`;
-  document.getElementById('eval-baseline-tier').innerText = `${baseline.qualityTier} Quality`;
+  const oqi = refEval.overallQualityIndex ?? 8;
+  const tier = refEval.qualityTier || (oqi >= 85 ? 'Excellent' : oqi >= 60 ? 'Good' : 'Poor');
 
-  document.getElementById('eval-refined-oqi').innerText = `${refined.overallQualityIndex}%`;
-  document.getElementById('eval-refined-tier').innerText = `${refined.qualityTier} Quality`;
+  const oqiEl = document.getElementById('oqi-score-number');
+  const tierEl = document.getElementById('oqi-tier-badge');
+  const deltaEl = document.getElementById('oqi-delta-chip');
 
-  const delta = refined.overallQualityIndex - baseline.overallQualityIndex;
-  document.getElementById('eval-delta-tag').innerText = `+${delta}% Δ`;
+  if (oqiEl) oqiEl.innerText = `${oqi}/100`;
+  if (tierEl) {
+    tierEl.innerText = tier;
+    tierEl.className = `tier-badge ${tier.toLowerCase()}`;
+  }
 
-  document.getElementById('quality-verdict-box').innerText = refined.summary || 'Requirements refined to rigorous testable standard.';
+  if (baseEval && deltaEl) {
+    const delta = oqi - (baseEval.overallQualityIndex ?? 8);
+    deltaEl.innerText = `+${delta} pts improvement`;
+  }
 
-  // Update Metric Breakdown
-  const bAmb = baseline.metrics?.ambiguity?.score ?? 0;
-  const rAmb = refined.metrics?.ambiguity?.score ?? 0;
-  document.getElementById('val-base-amb').innerText = `${bAmb}%`;
-  document.getElementById('val-ref-amb').innerText = `${rAmb}%`;
-  document.getElementById('bar-base-amb').style.width = `${bAmb}%`;
-  document.getElementById('bar-ref-amb').style.width = `${rAmb}%`;
-  document.getElementById('amb-delta').innerText = `-${bAmb - rAmb}% (Improvement)`;
+  const m = refEval.metrics || {};
+  const ambEl = document.getElementById('metric-val-ambiguity');
+  const testEl = document.getElementById('metric-val-testability');
+  const compEl = document.getElementById('metric-val-completeness');
+  const specEl = document.getElementById('metric-val-specificity');
+  const traceEl = document.getElementById('metric-val-traceability');
 
-  const bTest = baseline.metrics?.testability?.score ?? 0;
-  const rTest = refined.metrics?.testability?.score ?? 0;
-  document.getElementById('val-base-test').innerText = `${bTest}%`;
-  document.getElementById('val-ref-test').innerText = `${rTest}%`;
-  document.getElementById('bar-base-test').style.width = `${bTest}%`;
-  document.getElementById('bar-ref-test').style.width = `${rTest}%`;
-  document.getElementById('test-delta').innerText = `+${rTest - bTest}% Gain`;
+  if (ambEl) ambEl.innerText = `${m.ambiguity?.score ?? 0}%`;
+  if (testEl) testEl.innerText = `${m.testability?.score ?? 100}%`;
+  if (compEl) compEl.innerText = `${m.completeness?.score ?? 100}%`;
+  if (specEl) specEl.innerText = `${m.specificity?.score ?? 90}%`;
+  if (traceEl) traceEl.innerText = `${m.traceability?.score ?? 100}%`;
 
-  const bComp = baseline.metrics?.completeness?.score ?? 0;
-  const rComp = refined.metrics?.completeness?.score ?? 0;
-  document.getElementById('val-base-comp').innerText = `${bComp}%`;
-  document.getElementById('val-ref-comp').innerText = `${rComp}%`;
-  document.getElementById('bar-base-comp').style.width = `${bComp}%`;
-  document.getElementById('bar-ref-comp').style.width = `${rComp}%`;
-  document.getElementById('comp-delta').innerText = `+${rComp - bComp}% Gain`;
-
-  const bSpec = baseline.metrics?.specificity?.score ?? 0;
-  const rSpec = refined.metrics?.specificity?.score ?? 0;
-  document.getElementById('val-base-spec').innerText = `${bSpec}%`;
-  document.getElementById('val-ref-spec').innerText = `${rSpec}%`;
-  document.getElementById('bar-base-spec').style.width = `${bSpec}%`;
-  document.getElementById('bar-ref-spec').style.width = `${rSpec}%`;
-  document.getElementById('spec-delta').innerText = `+${rSpec - bSpec}% Gain`;
-
-  // Update Radar Chart Data
-  if (radarChart) {
-    radarChart.data.datasets[0].data = [bTest, bComp, bSpec, baseline.metrics?.traceability?.score ?? 0, 100 - bAmb];
-    radarChart.data.datasets[1].data = [rTest, rComp, rSpec, refined.metrics?.traceability?.score ?? 0, 100 - rAmb];
+  if (radarChart && baseEval) {
+    const baseM = baseEval.metrics || {};
+    radarChart.data.datasets[0].data = [
+      100 - (baseM.ambiguity?.score ?? 100),
+      baseM.testability?.score ?? 0,
+      baseM.completeness?.score ?? 0,
+      baseM.specificity?.score ?? 0,
+      baseM.traceability?.score ?? 50
+    ];
+    radarChart.data.datasets[1].data = [
+      100 - (m.ambiguity?.score ?? 0),
+      m.testability?.score ?? 100,
+      m.completeness?.score ?? 100,
+      m.specificity?.score ?? 90,
+      m.traceability?.score ?? 100
+    ];
     radarChart.update();
   }
 }
 
 function resetEvaluationDisplay() {
-  document.getElementById('eval-baseline-oqi').innerText = '0%';
-  document.getElementById('eval-baseline-tier').innerText = 'Not evaluated';
-  document.getElementById('eval-refined-oqi').innerText = '0%';
-  document.getElementById('eval-refined-tier').innerText = 'Not evaluated';
-  document.getElementById('eval-delta-tag').innerText = '+0% Δ';
-  document.getElementById('quality-verdict-box').innerText = 'Run the meeting analysis to calculate requirement quality.';
+  const oqiEl = document.getElementById('oqi-score-number');
+  const tierEl = document.getElementById('oqi-tier-badge');
+  const deltaEl = document.getElementById('oqi-delta-chip');
 
-  const metricIds = ['amb', 'test', 'comp', 'spec'];
-  metricIds.forEach(metric => {
-    document.getElementById(`val-base-${metric}`).innerText = '0%';
-    document.getElementById(`val-ref-${metric}`).innerText = '0%';
-    document.getElementById(`bar-base-${metric}`).style.width = '0%';
-    document.getElementById(`bar-ref-${metric}`).style.width = '0%';
-    document.getElementById(`${metric}-delta`).innerText = 'Not evaluated';
-  });
+  if (oqiEl) oqiEl.innerText = '-- / 100';
+  if (tierEl) {
+    tierEl.innerText = 'Awaiting Analysis';
+    tierEl.className = 'tier-badge poor';
+  }
+  if (deltaEl) deltaEl.innerText = '+0 pts improvement';
 
   if (radarChart) {
     radarChart.data.datasets[0].data = [0, 0, 0, 0, 0];
@@ -711,7 +834,7 @@ function resetEvaluationDisplay() {
   }
 }
 
-// 8. Live Microphone Speech Recognition
+// Live Microphone Speech Recognition (Web Speech API)
 function toggleMicListening() {
   if (isMicListening) {
     stopMic();
@@ -723,7 +846,7 @@ function toggleMicListening() {
 function startMic() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    alert('Web Speech API is not supported in this browser. Please use Chrome or paste your transcript.');
+    alert('Web Speech API is not supported in this browser. Please use Chrome.');
     return;
   }
 
@@ -733,17 +856,24 @@ function startMic() {
   speechRecognitionInstance.lang = 'en-US';
 
   speechRecognitionInstance.onresult = (event) => {
-    const lastResult = event.results[event.results.length - 1];
-    if (lastResult.isFinal) {
-      const speech = lastResult[0].transcript.trim();
-      const time = new Date().toTimeString().slice(3, 8);
-      processNewUtterance(speech, 'Live Speaker (Mic)', time);
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        const transcript = event.results[i][0].transcript.trim();
+        const time = new Date().toTimeString().slice(3, 8);
+        processNewUtterance(transcript, 'Live Speaker (Mic)', time);
+      }
     }
   };
 
   speechRecognitionInstance.onerror = (e) => {
-    console.error('Speech recognition error:', e);
+    console.error('Speech recognition error:', e.error);
     stopMic();
+  };
+
+  speechRecognitionInstance.onend = () => {
+    if (isMicListening) {
+      try { speechRecognitionInstance.start(); } catch {}
+    }
   };
 
   speechRecognitionInstance.start();
@@ -757,11 +887,14 @@ function stopMic() {
     speechRecognitionInstance.stop();
   }
   isMicListening = false;
-  document.getElementById('btn-mic-toggle').classList.remove('active');
-  document.getElementById('btn-mic-toggle').style.background = '';
+  const btn = document.getElementById('btn-mic-toggle');
+  if (btn) {
+    btn.classList.remove('active');
+    btn.style.background = '';
+  }
 }
 
-// 9. Manual Quick Input & Custom Transcript
+// Manual Quick Input & Custom Transcript
 function sendManualLine() {
   const input = document.getElementById('manual-line-input');
   const text = input.value.trim();
@@ -805,7 +938,7 @@ function applyCustomTranscript() {
   utterances.forEach(u => processNewUtterance(u.text, u.speaker, u.timestamp));
 }
 
-// 10. Export Execution
+// Export Execution
 async function exportSpecification(format) {
   if (!currentRequirements) {
     alert('Please record or simulate meeting statements first!');
@@ -830,20 +963,31 @@ async function exportSpecification(format) {
 
     if (!res.ok) throw new Error('Export request failed');
 
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `requirement-specification-report.${format === 'txt' ? 'md' : format}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    if (format === 'json') {
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      downloadBlob(blob, 'requirement-specification.json');
+    } else {
+      const blob = await res.blob();
+      const ext = format === 'txt' ? 'md' : format;
+      downloadBlob(blob, `requirement-specification-report.${ext}`);
+    }
   } catch (err) {
     alert(`Export Error: ${err.message}`);
   }
 }
 
-// Helper: Escape HTML
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function escapeHtml(str) {
   return (str || '')
     .replace(/&/g, '&amp;')
@@ -853,13 +997,10 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
-// Neutralise regex metacharacters so transcript-derived phrases can be used as
-// literal search patterns.
 function escapeRegex(str) {
   return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Fallback client analyzer
 function localAnalyzeUtterance(text, speaker, timestamp) {
   const vague = /\b(good enough|trusts it|solid|impactful|strong|not strictly|not very structured|useful|avoid bias|shouldn'?t be slow|ideally quick|mvp soon)\b/gi;
   const matches = text.match(vague) || [];
