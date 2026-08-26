@@ -19,10 +19,10 @@ class Settings:
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
     
     # Model Configurations
-    PRIMARY_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    PRIMARY_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
     FALLBACK_MODELS: list[str] = [
-        os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-        "gemini-2.5-flash",
+        os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"),
+        "gemini-3.1-flash-lite",
         "gemini-2.5-flash-lite",
         "gemini-1.5-flash"
     ]

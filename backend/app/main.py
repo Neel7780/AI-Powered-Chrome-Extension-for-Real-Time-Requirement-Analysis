@@ -56,7 +56,7 @@ def health_check():
         "status": "online",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
-        "ai_engine": "LangChain + Gemini 2.5 Flash" if llm_service.is_available() else "Deterministic Rule Fallback",
+        "ai_engine": "LangChain + Gemini 3.1 Flash Lite" if llm_service.is_available() else "Deterministic Rule Fallback",
         "llm_connected": llm_service.is_available(),
         "primary_model": settings.PRIMARY_MODEL,
         "available_models": settings.MODELS,

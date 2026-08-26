@@ -92,7 +92,7 @@ class SessionManager:
                 "clarificationCount": len(self.clarifications),
                 "resolvedCount": sum(1 for c in self.clarifications if c.get("selectedResponse")),
                 "ambiguityCount": sum(len(u.get("detectedFlags", [])) for u in self.transcript),
-                "overallQualityIndex": self.evaluation.get("refined", {}).get("overallQualityIndex", 8)
+                "overallQualityIndex": 0 if not self.transcript else self.evaluation.get("refined", {}).get("overallQualityIndex", 8)
             },
             "createdAt": self.created_at,
             "updatedAt": self.updated_at

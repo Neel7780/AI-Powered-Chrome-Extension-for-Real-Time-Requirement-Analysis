@@ -34,4 +34,4 @@ def test_llm_service_configuration():
     Verifies that LLMService exposes primary model and fallback list.
     """
     assert len(llm_service.models) >= 1
-    assert "gemini-2.5-flash" in llm_service.models
+    assert "gemini-3.1-flash-lite" in llm_service.models
