@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Union
 from ..models.schemas import TranscriptPayload, RequirementSet, QualityEvaluation
 from ..services.requirement_engine import requirement_engine
 from ..services.ambiguity_engine import ambiguity_engine
@@ -22,13 +22,14 @@ def analyze_transcript(payload: TranscriptPayload):
     Generate the BASELINE requirements and detect ambiguities BEFORE clarification.
     CRITICAL: Does not use or assume stakeholder clarification answers.
     """
-    raw_text = payload.transcript if isinstance(payload.transcript, str) else "\n".join(
-        f"{u.get('speaker', 'Speaker')}: {u.get('text', '')}" for u in payload.transcript
+    transcript_input = payload.transcript or payload.utterances or ""
+    raw_text = transcript_input if isinstance(transcript_input, str) else "\n".join(
+        f"{u.get('speaker', 'Speaker')}: {u.get('text', '')}" for u in transcript_input
     )
 
     # 1. Generate Baseline RequirementSet
     baseline_set, _ = requirement_engine.generate_requirements(
-        payload.transcript,
+        transcript_input,
         clarifications_raw=[],
         domain=payload.domain or "HR Tech"
     )
@@ -57,7 +58,12 @@ def analyze_transcript(payload: TranscriptPayload):
         "baseline": baseline_set.model_dump(),
         "ambiguities": [f.model_dump() for f in ambiguities],
         "metrics": baseline_metrics.model_dump(),
-        "llm_baseline_text": llm_baseline_text
+        "llm_baseline_text": llm_baseline_text,
+        "data": {
+            "baseline": baseline_set.model_dump(),
+            "ambiguities": [f.model_dump() for f in ambiguities],
+            "metrics": baseline_metrics.model_dump()
+        }
     }
 
 @router.post("/api/analyze/utterance")
@@ -75,6 +81,7 @@ def analyze_single_utterance(payload: UtterancePayload):
             "isAmbiguous": analysis.isAmbiguous,
             "ambiguityScore": analysis.ambiguityScore,
             "detectedFlags": [f.model_dump() for f in analysis.detectedFlags],
+            "candidateQuestion": ambiguity_engine.generate_fallback_question(payload.text, analysis.detectedFlags).model_dump() if analysis.isAmbiguous else None,
             "engine": analysis.engine
         }
     }

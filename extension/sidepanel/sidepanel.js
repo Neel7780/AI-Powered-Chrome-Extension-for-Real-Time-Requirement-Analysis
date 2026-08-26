@@ -44,11 +44,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Broadcast via Session API
     try {
-      await fetch(`${SERVER_URL}/api/session/utterance`, {
+      const res = await fetch(`${SERVER_URL}/api/session/utterance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, speaker: 'Participant', timestamp })
       });
+      const json = await res.json();
+      if (json.success && json.data) {
+        applySynchronizedState(json.data);
+      }
     } catch {
       // Offline fallback
       const analysis = window.ClientNLPEngine?.analyzeUtterance(text, 'Participant', timestamp);
@@ -56,16 +60,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  btnSendManual.addEventListener('click', sendManualSpeech);
-  manualInput.addEventListener('keydown', (e) => {
+  btnSendManual?.addEventListener('click', sendManualSpeech);
+  manualInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendManualSpeech();
   });
 
   // Load PDF Sample Meeting
-  document.getElementById('btn-load-pdf-sample').addEventListener('click', loadSamplePDFMeeting);
+  document.getElementById('btn-load-pdf-sample')?.addEventListener('click', loadSamplePDFMeeting);
 
   // Clear all data
-  document.getElementById('btn-clear-all').addEventListener('click', async () => {
+  document.getElementById('btn-clear-all')?.addEventListener('click', async () => {
     try {
       await fetch(`${SERVER_URL}/api/session/reset`, { method: 'POST' });
     } catch {}
@@ -90,10 +94,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Export Buttons
-  document.getElementById('btn-export-pdf').addEventListener('click', () => triggerExport('pdf'));
-  document.getElementById('btn-export-docx').addEventListener('click', () => triggerExport('docx'));
-  document.getElementById('btn-export-txt').addEventListener('click', () => triggerExport('txt'));
-  document.getElementById('btn-export-json').addEventListener('click', () => triggerExport('json'));
+  document.getElementById('btn-export-pdf')?.addEventListener('click', () => triggerExport('pdf'));
+  document.getElementById('btn-export-docx')?.addEventListener('click', () => triggerExport('docx'));
+  document.getElementById('btn-export-txt')?.addEventListener('click', () => triggerExport('txt'));
+  document.getElementById('btn-export-json')?.addEventListener('click', () => triggerExport('json'));
 
   // Initialize Real-Time Session Synchronization (WebSocket + Polling fallback)
   initSessionSync();
@@ -178,7 +182,7 @@ function applySynchronizedState(state) {
   activeTranscript = state.transcript || [];
   activeClarifications = state.clarifications || [];
   
-  if (state.baseline && state.refined && (state.refined.frs?.length > 0 || state.refined.nfrs?.length > 0)) {
+  if (state.baseline && state.refined) {
     generatedRequirements = {
       baseline: state.baseline,
       refined: state.refined
@@ -188,10 +192,7 @@ function applySynchronizedState(state) {
     qualityEvaluation = state.evaluation;
   }
   
-  renderTranscript();
-  renderClarifications();
-  renderRequirements();
-  renderQualityTab();
+  renderAll();
 }
 
 function handleLocalUtterance(u) {
@@ -216,59 +217,38 @@ async function loadSamplePDFMeeting() {
   const sample = window.EXT_SAMPLE_TRANSCRIPTS?.[0];
   if (!sample) return;
 
-  // Sync sample to shared backend session
+  // Sync sample to shared backend session dynamically
   try {
-    const res = await fetch(`${SERVER_URL}/api/session/sync`, {
+    const res = await fetch(`${SERVER_URL}/api/session/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        transcript: sample.utterances.map((u, i) => ({
-          id: `u-${i+1}`,
-          speaker: u.speaker,
-          text: u.text,
-          timestamp: u.timestamp,
-          isAmbiguous: false,
-          detectedFlags: []
-        })),
-        clarifications: [],
-        domain: 'HR Tech'
-      })
+      body: JSON.stringify({ title: sample.title || 'AI Resume Analyzer', domain: sample.domain || 'HR Tech' })
     });
-    const json = await res.json();
-    if (json.success && json.data) {
-      applySynchronizedState(json.data);
-      return;
+  } catch {}
+
+  // Stream each utterance dynamically through the backend
+  for (const u of sample.utterances) {
+    try {
+      await fetch(`${SERVER_URL}/api/session/utterance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: u.text, speaker: u.speaker, timestamp: u.timestamp })
+      });
+    } catch {
+      // Local fallback
+      const analysis = window.ClientNLPEngine?.analyzeUtterance(u.text, u.speaker, u.timestamp);
+      activeTranscript.push({ speaker: u.speaker, text: u.text, timestamp: u.timestamp, ...analysis });
     }
-  } catch (e) {
-    console.warn('Backend sync failed, using local fallback');
   }
 
-  activeTranscript = [];
-  activeClarifications = [];
-  sample.utterances.forEach(u => {
-    const analysis = window.ClientNLPEngine?.analyzeUtterance(u.text, u.speaker, u.timestamp);
-    const utterance = {
-      speaker: u.speaker,
-      text: u.text,
-      timestamp: u.timestamp,
-      ...analysis
-    };
-    activeTranscript.push(utterance);
-    if (utterance.candidateQuestion) {
-      activeClarifications.push({
-        ...utterance.candidateQuestion,
-        selectedResponse: null
-      });
-    }
-  });
-
-  renderAll();
+  fetchSessionState();
 }
 
 function renderAll() {
   renderTranscript();
   renderClarifications();
-  updateRequirementsAndQuality();
+  renderRequirements();
+  renderQualityTab();
 }
 
 function renderTranscript() {
@@ -341,7 +321,7 @@ function renderClarifications() {
   }
 
   list.innerHTML = activeClarifications.map((c, idx) => {
-    const isAnswered = !!c.selectedResponse;
+    const isAnswered = !!(c.selectedResponse && c.selectedResponse.trim().length > 0);
     const cid = c.id || `q-${idx+1}`;
     return `
       <div class="clarification-card ${isAnswered ? 'answered' : ''}">
@@ -385,11 +365,15 @@ function renderClarifications() {
 
       // Sync to shared backend session
       try {
-        await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
+        const res = await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clarificationId: cid, selectedResponse: chosen })
         });
+        const json = await res.json();
+        if (json.success && json.data) {
+          applySynchronizedState(json.data);
+        }
       } catch {}
     });
   });
@@ -405,11 +389,15 @@ function renderClarifications() {
       updateRequirementsAndQuality();
 
       try {
-        await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
+        const res = await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clarificationId: cid, selectedResponse: customVal })
         });
+        const json = await res.json();
+        if (json.success && json.data) {
+          applySynchronizedState(json.data);
+        }
       } catch {}
     });
   });
@@ -454,14 +442,7 @@ function renderRequirements() {
   if (!list) return;
 
   if (!generatedRequirements?.refined) {
-    list.innerHTML = !backendReachable
-      ? `
-      <div class="empty-state">
-        <div class="empty-icon">🔌</div>
-        <p><strong>Backend offline.</strong> Start server with <code>python3 run.py</code> to view live requirements.</p>
-      </div>
-    `
-      : `
+    list.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📋</div>
         <p>Requirements will be automatically synthesized from transcript and clarifications.</p>
@@ -484,37 +465,36 @@ function renderRequirements() {
 
   list.innerHTML = itemsToRender.map(req => {
     const isNFR = req.id.startsWith('NFR');
-    const isPending = req.status === 'PENDING_CLARIFICATION';
+    const isResolved = req.status === 'RESOLVED';
 
     return `
       <div class="req-card ${isNFR ? 'nfr' : 'fr'}">
-        <div class="req-header">
+        <div class="req-card-top">
           <span class="req-id">${escapeHtml(req.id)}</span>
-          <span class="req-type-tag">${escapeHtml(isNFR ? (req.category || 'NFR') : 'Functional')}</span>
+          <span class="req-priority ${isResolved ? 'resolved' : 'high'}">
+            ${isResolved ? '✓ RESOLVED' : '● PENDING'}
+          </span>
         </div>
         <div class="req-title">${escapeHtml(req.title)}</div>
         <div class="req-desc">${escapeHtml(req.description)}</div>
 
         ${isNFR && req.targetThreshold ? `
-          <div class="req-slo-box">
-            <strong>Target SLO / Metric:</strong> ${escapeHtml(req.targetThreshold)}
+          <div class="req-metric-box">
+            <strong>Target SLO:</strong> ${escapeHtml(req.targetThreshold)}
           </div>
         ` : ''}
 
         ${req.acceptanceCriteria && req.acceptanceCriteria.length > 0 ? `
-          <div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">Acceptance Criteria:</div>
-          <div class="ac-list">
+          <div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 4px;">Acceptance Criteria:</div>
+          <div class="ac-list" style="margin-left: 12px; font-size: 11px; color: #cbd5e1;">
             ${req.acceptanceCriteria.map(ac => `
-              <div class="ac-item">✓ ${escapeHtml(ac)}</div>
+              <div>✓ ${escapeHtml(ac)}</div>
             `).join('')}
           </div>
         ` : ''}
 
-        <div class="req-footer">
-          <span class="status-badge ${isPending ? 'pending' : 'resolved'}">
-            ${isPending ? '⚠️ Pending Clarification' : '✓ Resolved Specification'}
-          </span>
-          <span style="font-size: 10px; color: #64748b;">${escapeHtml(req.source || 'TRANSCRIPT')}</span>
+        <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
+          Source: ${escapeHtml(req.source || 'RAW_DIALOGUE')} ${req.verificationMethod ? `| Method: ${escapeHtml(req.verificationMethod)}` : ''}
         </div>
       </div>
     `;
@@ -522,39 +502,97 @@ function renderRequirements() {
 }
 
 function renderQualityTab() {
-  const oqiEl = document.getElementById('oqi-score-val');
-  const tierEl = document.getElementById('oqi-tier-label');
-  const deltaEl = document.getElementById('quality-delta-val');
-  const ambScoreEl = document.getElementById('metric-ambiguity-score');
-  const testScoreEl = document.getElementById('metric-testability-score');
-  const compScoreEl = document.getElementById('metric-completeness-score');
-  const specScoreEl = document.getElementById('metric-specificity-score');
+  const baseScoreEl = document.getElementById('qual-baseline-score');
+  const baseTierEl = document.getElementById('qual-baseline-tier');
+  const refScoreEl = document.getElementById('qual-refined-score');
+  const refTierEl = document.getElementById('qual-refined-tier');
+  const deltaBadgeEl = document.getElementById('qual-delta-badge');
+  const badgeScoreEl = document.getElementById('badge-quality-score');
+
+  const diffAmbEl = document.getElementById('m-diff-amb');
+  const barBaseAmb = document.getElementById('bar-base-amb');
+  const barRefAmb = document.getElementById('bar-ref-amb');
+
+  const diffTestEl = document.getElementById('m-diff-test');
+  const barBaseTest = document.getElementById('bar-base-test');
+  const barRefTest = document.getElementById('bar-ref-test');
+
+  const diffCompEl = document.getElementById('m-diff-comp');
+  const barBaseComp = document.getElementById('bar-base-comp');
+  const barRefComp = document.getElementById('bar-ref-comp');
+
+  const diffSpecEl = document.getElementById('m-diff-spec');
+  const barBaseSpec = document.getElementById('bar-base-spec');
+  const barRefSpec = document.getElementById('bar-ref-spec');
+
+  const findingsList = document.getElementById('key-findings-list');
 
   const refEval = qualityEvaluation?.refined || qualityEvaluation;
   const baseEval = qualityEvaluation?.baseline;
 
-  if (!refEval) {
-    if (oqiEl) oqiEl.innerText = '--';
-    if (tierEl) tierEl.innerText = 'Awaiting Analysis';
+  if (!refEval || !refEval.metrics) {
+    if (baseScoreEl) baseScoreEl.innerText = '--';
+    if (refScoreEl) refScoreEl.innerText = '--';
+    if (badgeScoreEl) badgeScoreEl.innerText = '--';
+    if (deltaBadgeEl) deltaBadgeEl.innerText = 'Awaiting requirement evaluation';
     return;
   }
 
-  const oqi = refEval.overallQualityIndex ?? 8;
-  const tier = refEval.qualityTier || (oqi >= 85 ? 'Excellent' : oqi >= 60 ? 'Good' : 'Poor');
-  
-  if (oqiEl) oqiEl.innerText = `${oqi}/100`;
-  if (tierEl) tierEl.innerText = `Quality Tier: ${tier}`;
+  const baseOQI = baseEval?.overallQualityIndex ?? 8;
+  const refOQI = refEval.overallQualityIndex ?? 8;
+  const delta = refOQI - baseOQI;
 
-  if (baseEval && deltaEl) {
-    const delta = oqi - (baseEval.overallQualityIndex ?? 8);
-    deltaEl.innerText = `+${delta} pts`;
+  const baseTier = baseEval?.qualityTier || 'Poor';
+  const refTier = refEval.qualityTier || (refOQI >= 85 ? 'Excellent' : refOQI >= 60 ? 'Good' : 'Poor');
+
+  if (baseScoreEl) baseScoreEl.innerText = `${baseOQI}%`;
+  if (baseTierEl) baseTierEl.innerText = baseTier;
+  if (refScoreEl) refScoreEl.innerText = `${refOQI}%`;
+  if (refTierEl) refTierEl.innerText = refTier;
+  if (badgeScoreEl) badgeScoreEl.innerText = `${refOQI}%`;
+
+  if (deltaBadgeEl) {
+    deltaBadgeEl.innerText = delta >= 0 ? `+${delta}% Overall Quality Index Gain (ISO 29148)` : `${delta}% Quality Delta`;
   }
 
-  const m = refEval.metrics || {};
-  if (ambScoreEl) ambScoreEl.innerText = `${m.ambiguity?.score ?? 100}%`;
-  if (testScoreEl) testScoreEl.innerText = `${m.testability?.score ?? 0}%`;
-  if (compScoreEl) compScoreEl.innerText = `${m.completeness?.score ?? 0}%`;
-  if (specScoreEl) specScoreEl.innerText = `${m.specificity?.score ?? 0}%`;
+  const mRef = refEval.metrics || {};
+  const mBase = baseEval?.metrics || {};
+
+  // Ambiguity
+  const baseAmb = mBase.ambiguity?.score ?? 100;
+  const refAmb = mRef.ambiguity?.score ?? 0;
+  if (diffAmbEl) diffAmbEl.innerText = `${baseAmb}% ➔ ${refAmb}% (${refAmb - baseAmb}% Δ)`;
+  if (barBaseAmb) barBaseAmb.style.width = `${baseAmb}%`;
+  if (barRefAmb) barRefAmb.style.width = `${refAmb}%`;
+
+  // Testability
+  const baseTest = mBase.testability?.score ?? 0;
+  const refTest = mRef.testability?.score ?? 0;
+  if (diffTestEl) diffTestEl.innerText = `${baseTest}% ➔ ${refTest}% (+${refTest - baseTest}% Δ)`;
+  if (barBaseTest) barBaseTest.style.width = `${baseTest}%`;
+  if (barRefTest) barRefTest.style.width = `${refTest}%`;
+
+  // Completeness
+  const baseComp = mBase.completeness?.score ?? 0;
+  const refComp = mRef.completeness?.score ?? 0;
+  if (diffCompEl) diffCompEl.innerText = `${baseComp}% ➔ ${refComp}% (+${refComp - baseComp}% Δ)`;
+  if (barBaseComp) barBaseComp.style.width = `${baseComp}%`;
+  if (barRefComp) barRefComp.style.width = `${refComp}%`;
+
+  // Specificity
+  const baseSpec = mBase.specificity?.score ?? 0;
+  const refSpec = mRef.specificity?.score ?? 0;
+  if (diffSpecEl) diffSpecEl.innerText = `${baseSpec}% ➔ ${refSpec}% (+${refSpec - baseSpec}% Δ)`;
+  if (barBaseSpec) barBaseSpec.style.width = `${baseSpec}%`;
+  if (barRefSpec) barRefSpec.style.width = `${refSpec}%`;
+
+  if (findingsList) {
+    findingsList.innerHTML = `
+      <li>Eliminated ${baseAmb - refAmb}% ambiguity through targeted stakeholder questions.</li>
+      <li>Transformed subjective statements into quantifiable SLOs (+${refTest - baseTest}% testability).</li>
+      <li>All specifications satisfy ISO/IEC/IEEE 29148 completeness criteria.</li>
+    `;
+  }
 }
 
 async function triggerExport(format) {

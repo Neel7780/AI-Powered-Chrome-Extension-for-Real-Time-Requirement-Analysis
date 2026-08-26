@@ -63,7 +63,7 @@ function applyIncomingSessionState(state) {
     activeTranscript = state.transcript || [];
     activeClarifications = state.clarifications || [];
 
-    if (state.baseline && state.refined && (state.refined.frs?.length > 0 || state.refined.nfrs?.length > 0)) {
+    if (state.baseline && state.refined) {
       currentRequirements = {
         baseline: state.baseline,
         refined: state.refined
@@ -118,7 +118,7 @@ async function loadScenarioData() {
   if (!allSampleScenarios || allSampleScenarios.length === 0) {
     allSampleScenarios = [{
       id: 'resume-analyzer-assignment',
-      title: 'AI Resume Analyzer (Prof. Supplied Meeting)',
+      title: 'AI Resume Analyzer (Assignment PDF Conversation)',
       domain: 'HR Tech',
       utterances: [
         { speaker: "Hiring Manager", text: "We need to build an AI-based resume analyzer.", timestamp: "00:05" },
@@ -165,30 +165,31 @@ function selectScenario(scenarioId) {
 
   currentScenario = allSampleScenarios.find(s => s.id === scenarioId) || allSampleScenarios[0];
   if (currentScenario) {
-    document.getElementById('meeting-stream-desc').innerText = currentScenario.title;
+    const desc = document.getElementById('meeting-stream-desc');
+    if (desc) desc.innerText = currentScenario.title;
   }
 }
 
 // 3. Setup Event Listeners
 function setupEventListeners() {
-  document.getElementById('scenario-select').addEventListener('change', (e) => {
+  document.getElementById('scenario-select')?.addEventListener('change', (e) => {
     selectScenario(e.target.value);
   });
 
-  document.getElementById('btn-play-pause').addEventListener('click', togglePlaySimulation);
-  document.getElementById('btn-step-next').addEventListener('click', stepSimulation);
-  document.getElementById('btn-instant-load').addEventListener('click', loadEntireMeetingInstantly);
-  document.getElementById('btn-reset-meeting').addEventListener('click', resetMeetingState);
+  document.getElementById('btn-play-pause')?.addEventListener('click', togglePlaySimulation);
+  document.getElementById('btn-step-next')?.addEventListener('click', stepSimulation);
+  document.getElementById('btn-instant-load')?.addEventListener('click', loadEntireMeetingInstantly);
+  document.getElementById('btn-reset-meeting')?.addEventListener('click', resetMeetingState);
 
-  document.getElementById('btn-mic-toggle').addEventListener('click', toggleMicListening);
+  document.getElementById('btn-mic-toggle')?.addEventListener('click', toggleMicListening);
 
-  document.getElementById('btn-send-manual-line').addEventListener('click', sendManualLine);
-  document.getElementById('manual-line-input').addEventListener('keydown', (e) => {
+  document.getElementById('btn-send-manual-line')?.addEventListener('click', sendManualLine);
+  document.getElementById('manual-line-input')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendManualLine();
   });
 
-  document.getElementById('btn-apply-custom').addEventListener('click', applyCustomTranscript);
-  document.getElementById('btn-close-custom').addEventListener('click', () => {
+  document.getElementById('btn-apply-custom')?.addEventListener('click', applyCustomTranscript);
+  document.getElementById('btn-close-custom')?.addEventListener('click', () => {
     document.getElementById('custom-drawer').style.display = 'none';
     document.getElementById('scenario-select').value = currentScenario?.id || 'resume-analyzer-assignment';
   });
@@ -204,7 +205,7 @@ function setupEventListeners() {
     });
   });
 
-  document.getElementById('btn-clarify-all-smart').addEventListener('click', autoClarifyAll);
+  document.getElementById('btn-clarify-all-smart')?.addEventListener('click', autoClarifyAll);
 
   document.querySelectorAll('.req-subtab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -217,17 +218,24 @@ function setupEventListeners() {
 
   const exportDropdownBtn = document.getElementById('btn-export-dropdown-toggle');
   const exportMenu = document.getElementById('export-menu');
-  exportDropdownBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    exportMenu.classList.toggle('show');
-  });
+  if (exportDropdownBtn && exportMenu) {
+    exportDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportMenu.classList.toggle('show');
+    });
+    document.addEventListener('click', () => exportMenu.classList.remove('show'));
+  }
 
-  document.addEventListener('click', () => exportMenu.classList.remove('show'));
+  // Bind Export Buttons (Both class and ID variants)
+  document.getElementById('export-pdf-btn')?.addEventListener('click', () => exportSpecification('pdf'));
+  document.getElementById('export-docx-btn')?.addEventListener('click', () => exportSpecification('docx'));
+  document.getElementById('export-txt-btn')?.addEventListener('click', () => exportSpecification('txt'));
+  document.getElementById('export-json-btn')?.addEventListener('click', () => exportSpecification('json'));
 
-  document.getElementById('btn-export-pdf').addEventListener('click', () => exportSpecification('pdf'));
-  document.getElementById('btn-export-docx').addEventListener('click', () => exportSpecification('docx'));
-  document.getElementById('btn-export-md').addEventListener('click', () => exportSpecification('txt'));
-  document.getElementById('btn-export-json').addEventListener('click', () => exportSpecification('json'));
+  document.getElementById('btn-export-pdf')?.addEventListener('click', () => exportSpecification('pdf'));
+  document.getElementById('btn-export-docx')?.addEventListener('click', () => exportSpecification('docx'));
+  document.getElementById('btn-export-md')?.addEventListener('click', () => exportSpecification('txt'));
+  document.getElementById('btn-export-json')?.addEventListener('click', () => exportSpecification('json'));
 }
 
 // Simulation Controls
@@ -242,8 +250,14 @@ function togglePlaySimulation() {
 function startSimulation() {
   if (!currentScenario || !currentScenario.utterances) return;
   isSimPlaying = true;
-  document.getElementById('btn-play-pause').innerHTML = '<span>⏸</span> Pause';
-  document.getElementById('btn-play-pause').classList.add('active');
+  const playBtn = document.getElementById('btn-play-pause');
+  const viz = document.getElementById('audio-visualizer');
+  if (playBtn) playBtn.classList.add('active');
+  if (viz) viz.classList.add('playing');
+
+  const speedSelect = document.getElementById('speed-select');
+  const speed = speedSelect ? parseFloat(speedSelect.value) : 2.0;
+  const interval = Math.max(400, Math.round(1800 / speed));
 
   simIntervalTimer = setInterval(() => {
     if (simulationIndex >= currentScenario.utterances.length) {
@@ -253,17 +267,16 @@ function startSimulation() {
     const u = currentScenario.utterances[simulationIndex];
     processNewUtterance(u.text, u.speaker, u.timestamp);
     simulationIndex++;
-  }, 1800);
+  }, interval);
 }
 
 function stopSimulation() {
   isSimPlaying = false;
   clearInterval(simIntervalTimer);
-  const btn = document.getElementById('btn-play-pause');
-  if (btn) {
-    btn.innerHTML = '<span>▶</span> Play Stream';
-    btn.classList.remove('active');
-  }
+  const playBtn = document.getElementById('btn-play-pause');
+  const viz = document.getElementById('audio-visualizer');
+  if (playBtn) playBtn.classList.remove('active');
+  if (viz) viz.classList.remove('playing');
 }
 
 function stepSimulation() {
@@ -301,18 +314,26 @@ async function resetMeetingState() {
     await fetch('/api/session/reset', { method: 'POST' });
   } catch {}
 
-  document.getElementById('transcript-feed-area').innerHTML = `
-    <div class="feed-placeholder" id="feed-placeholder">
-      <div class="placeholder-icon">💬</div>
-      <h3>Meeting Room Ready</h3>
-      <p>Click <strong>Play (▶)</strong> to simulate the live meeting or activate <strong>Live Mic</strong>.</p>
-    </div>
-  `;
+  const feed = document.getElementById('transcript-feed-area');
+  if (feed) {
+    feed.innerHTML = `
+      <div class="feed-placeholder" id="feed-placeholder">
+        <div class="placeholder-icon">💬</div>
+        <h3>Meeting Room Ready</h3>
+        <p>Click <strong>Play (▶)</strong> to simulate the live meeting or activate <strong>Live Mic</strong>.</p>
+      </div>
+    `;
+  }
 
-  document.getElementById('ambiguity-strip-text').innerText = '0 Ambiguous Statements Detected';
-  document.getElementById('ambiguity-index-chip').innerText = 'Ambiguity: 0%';
-  document.getElementById('count-clarify-tab').innerText = '0';
-  document.getElementById('count-req-tab').innerText = '0';
+  const ambText = document.getElementById('ambiguity-strip-text');
+  const ambChip = document.getElementById('ambiguity-index-chip');
+  const cTab = document.getElementById('count-clarify-tab');
+  const rTab = document.getElementById('count-req-tab');
+
+  if (ambText) ambText.innerText = '0 Ambiguous Statements Detected';
+  if (ambChip) ambChip.innerText = 'Ambiguity: 0%';
+  if (cTab) cTab.innerText = '0';
+  if (rTab) rTab.innerText = '0';
 
   renderClarificationsHub();
   renderRequirementsBoard();
@@ -433,7 +454,7 @@ function renderClarificationsHub() {
   const pendingSub = document.getElementById('clarify-pending-sub');
   if (progressLabel) progressLabel.innerText = `${answered} / ${total} Resolved (${pct}%)`;
   if (progressBar) progressBar.style.width = `${pct}%`;
-  if (pendingSub) pendingSub.innerText = `${pending} requirements still pending stakeholder clarification`;
+  if (pendingSub) pendingSub.innerText = `${pending} requirements pending stakeholder clarification`;
 
   if (!container) return;
 
@@ -442,7 +463,7 @@ function renderClarificationsHub() {
       <div class="empty-clarify-state">
         <div class="empty-icon">💡</div>
         <h4>No Clarifications Pending</h4>
-        <p>As speakers make vague statements in the meeting, AI-generated clarification cards will appear here.</p>
+        <p>As speakers make vague or incomplete statements in the meeting, AI-generated clarification cards will appear here.</p>
       </div>
     `;
     return;
@@ -495,11 +516,16 @@ function renderClarificationsHub() {
 
       // Sync to shared backend session
       try {
-        await fetch('/api/session/clarify/answer', {
+        const res = await fetch('/api/session/clarify/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clarificationId: cid, selectedResponse: chosen })
         });
+        const json = await res.json();
+        if (json.success && json.data) {
+          applyIncomingSessionState(json.data);
+          return;
+        }
       } catch {}
 
       await synthesizeAndEvaluateRequirements();
@@ -515,11 +541,16 @@ function renderClarificationsHub() {
       activeClarifications[idx].selectedResponse = val;
 
       try {
-        await fetch('/api/session/clarify/answer', {
+        const res = await fetch('/api/session/clarify/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clarificationId: cid, selectedResponse: val })
         });
+        const json = await res.json();
+        if (json.success && json.data) {
+          applyIncomingSessionState(json.data);
+          return;
+        }
       } catch {}
 
       await synthesizeAndEvaluateRequirements();
@@ -542,7 +573,7 @@ async function autoClarifyAll() {
   renderClarificationsHub();
 
   try {
-    await fetch('/api/session/sync', {
+    const res = await fetch('/api/session/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -551,6 +582,11 @@ async function autoClarifyAll() {
         domain: currentScenario?.domain || 'HR Tech'
       })
     });
+    const json = await res.json();
+    if (json.success && json.data) {
+      applyIncomingSessionState(json.data);
+      return;
+    }
   } catch {}
 
   await synthesizeAndEvaluateRequirements();
@@ -575,14 +611,13 @@ async function synthesizeAndEvaluateRequirements() {
     if (json.success) {
       currentRequirements = { baseline: json.baseline, refined: json.refined };
       currentEvaluation = json.evaluation || { refined: json.metrics };
+      renderRequirementsBoard();
       updateQualityEvaluationDisplay();
       renderTransformationDiff();
     }
   } catch (e) {
     console.error('Error generating requirements:', e);
   }
-
-  renderRequirementsBoard();
 }
 
 function renderRequirementsBoard() {
@@ -620,39 +655,38 @@ function renderRequirementsBoard() {
     const isResolved = req.status === 'RESOLVED';
 
     return `
-      <div class="req-card ${isNFR ? 'nfr' : 'fr'}">
-        <div class="req-card-header">
-          <div class="req-id-badge">${escapeHtml(req.id)}</div>
-          <span class="req-category-pill">${escapeHtml(isNFR ? (req.category || 'NFR') : 'Functional')}</span>
-          <span class="req-status-pill ${isResolved ? 'resolved' : 'pending'}">
+      <div class="req-full-card ${isNFR ? 'nfr' : 'fr'}">
+        <div class="req-top-bar">
+          <div class="req-badge-id">${escapeHtml(req.id)}</div>
+          <span class="req-category-tag">${escapeHtml(isNFR ? (req.category || 'NFR') : 'Functional')}</span>
+          <span class="req-priority-pill must">${escapeHtml(req.priority || 'Must Have')}</span>
+          <span class="status-chip ${isResolved ? 'resolved' : 'pending'}">
             ${isResolved ? '✓ RESOLVED' : '● PENDING CLARIFICATION'}
           </span>
         </div>
-        <div class="req-title">${escapeHtml(req.title)}</div>
-        <div class="req-desc">${escapeHtml(req.description)}</div>
+        <div class="req-title-text">${escapeHtml(req.title)}</div>
+        <div class="req-desc-text">${escapeHtml(req.description)}</div>
 
         ${isNFR && req.targetThreshold ? `
-          <div class="req-metric-box">
-            <span class="metric-label">Target SLO / Criterion:</span>
-            <span class="metric-val">${escapeHtml(req.targetThreshold)}</span>
+          <div class="req-slo-highlight ${isResolved ? '' : 'unresolved'}">
+            <strong>Target Metric / SLO:</strong> ${escapeHtml(req.targetThreshold)}
           </div>
         ` : ''}
 
         ${req.acceptanceCriteria && req.acceptanceCriteria.length > 0 ? `
-          <div class="req-ac-section">
-            <div class="ac-header-label">Verifiable Acceptance Criteria:</div>
-            ${req.acceptanceCriteria.map(ac => `
-              <div class="ac-item-row">
-                <span class="ac-icon">✓</span>
-                <span>${escapeHtml(ac)}</span>
-              </div>
-            `).join('')}
+          <div class="req-ac-list">
+            <strong style="color: #cbd5e1; font-size: 11px;">Acceptance Criteria (Gherkin):</strong>
+            <ul>
+              ${req.acceptanceCriteria.map(ac => `
+                <li>${escapeHtml(ac)}</li>
+              `).join('')}
+            </ul>
           </div>
         ` : ''}
 
-        <div class="req-footer">
-          <span class="prov-tag">Source: ${escapeHtml(req.source || 'RAW_DIALOGUE')}</span>
-          ${req.verificationMethod ? `<span class="verif-tag">Method: ${escapeHtml(req.verificationMethod)}</span>` : ''}
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 4px;">
+          <span>Source: ${escapeHtml(req.source || 'RAW_DIALOGUE')}</span>
+          ${req.verificationMethod ? `<span>Method: ${escapeHtml(req.verificationMethod)}</span>` : ''}
         </div>
       </div>
     `;
@@ -661,14 +695,14 @@ function renderRequirementsBoard() {
 
 // Transformation Diff Tab
 function renderTransformationDiff() {
-  const container = document.getElementById('diff-cards-container');
-  if (!container) return;
+  const tbody = document.getElementById('diff-table-body');
+  if (!tbody) return;
 
   if (!currentRequirements?.baseline || !currentRequirements?.refined) {
-    container.innerHTML = `
-      <div class="empty-diff-state">
-        <p>Record meeting dialogue and answer clarifications to view before-vs-after requirement transformations.</p>
-      </div>
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="3" class="diff-empty">Run the meeting analysis to compare baseline and refined requirements.</td>
+      </tr>
     `;
     return;
   }
@@ -681,39 +715,38 @@ function renderTransformationDiff() {
   const allRef = [...refFRs, ...refNFRs];
   const allBase = [...baseFRs, ...baseNFRs];
 
-  container.innerHTML = allRef.map((ref, idx) => {
+  tbody.innerHTML = allRef.map((ref, idx) => {
     const base = allBase.find(b => b.id === ref.id) || allBase[idx] || {};
     const isResolved = ref.status === 'RESOLVED';
 
     return `
-      <div class="diff-card">
-        <div class="diff-card-header">
-          <span class="diff-req-id">${escapeHtml(ref.id)}: ${escapeHtml(ref.title)}</span>
-          <span class="diff-status ${isResolved ? 'gain' : 'unresolved'}">
-            ${isResolved ? '✓ Specification Quantified' : '● Awaiting Clarification'}
-          </span>
-        </div>
-        <div class="diff-columns-grid">
-          <div class="diff-col before">
-            <div class="diff-col-tag">WITHOUT CLARIFICATION (Baseline)</div>
-            <div class="diff-statement">${escapeHtml(base.description || 'Raw, unquantified statement.')}</div>
-            <div class="diff-meta">Target: <code>${escapeHtml(base.targetThreshold || 'Unspecified')}</code></div>
+      <tr>
+        <td>
+          <strong style="color: #38bdf8;">${escapeHtml(ref.id)}</strong><br/>
+          <span style="font-size: 11px; color: #94a3b8;">${escapeHtml(ref.category || 'General')}</span>
+        </td>
+        <td>
+          <div style="font-size: 12px; color: #fca5a5;">${escapeHtml(base.description || 'Raw, unquantified statement.')}</div>
+          <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">SLO: <code>${escapeHtml(base.targetThreshold || 'Unspecified')}</code></div>
+        </td>
+        <td>
+          <div style="font-size: 12px; color: ${isResolved ? '#6ee7b7' : '#fcd34d'}; font-weight: 600;">
+            ${escapeHtml(ref.description || '')}
           </div>
-          <div class="diff-col after">
-            <div class="diff-col-tag">WITH CLARIFICATION (Refined)</div>
-            <div class="diff-statement">${escapeHtml(ref.description || '')}</div>
-            <div class="diff-meta">Target: <code>${escapeHtml(ref.targetThreshold || 'Pending')}</code></div>
-          </div>
-        </div>
-      </div>
+          <div style="font-size: 10.5px; color: #a7f3d0; margin-top: 2px;">SLO: <code>${escapeHtml(ref.targetThreshold || 'Pending')}</code></div>
+        </td>
+      </tr>
     `;
   }).join('');
 }
 
 // Quality Radar Chart & Evaluation
 function initRadarChart() {
-  const ctx = document.getElementById('quality-radar-canvas')?.getContext('2d');
-  if (!ctx || typeof Chart === 'undefined') return;
+  const canvas = document.getElementById('qualityRadarChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
 
   radarChart = new Chart(ctx, {
     type: 'radar',
@@ -764,68 +797,138 @@ function updateQualityEvaluationDisplay() {
   const refEval = currentEvaluation.refined || currentEvaluation;
   const baseEval = currentEvaluation.baseline;
 
-  const oqi = refEval.overallQualityIndex ?? 8;
-  const tier = refEval.qualityTier || (oqi >= 85 ? 'Excellent' : oqi >= 60 ? 'Good' : 'Poor');
+  const baseOQI = baseEval?.overallQualityIndex ?? 8;
+  const refOQI = refEval?.overallQualityIndex ?? 8;
+  const delta = refOQI - baseOQI;
 
-  const oqiEl = document.getElementById('oqi-score-number');
-  const tierEl = document.getElementById('oqi-tier-badge');
-  const deltaEl = document.getElementById('oqi-delta-chip');
+  const baseTier = baseEval?.qualityTier || 'Poor';
+  const refTier = refEval?.qualityTier || (refOQI >= 85 ? 'Excellent' : refOQI >= 60 ? 'Good' : 'Poor');
 
-  if (oqiEl) oqiEl.innerText = `${oqi}/100`;
-  if (tierEl) {
-    tierEl.innerText = tier;
-    tierEl.className = `tier-badge ${tier.toLowerCase()}`;
+  // DOM elements in webapp/index.html
+  const baseScoreEl = document.getElementById('eval-baseline-oqi');
+  const baseTierEl = document.getElementById('eval-baseline-tier');
+  const deltaTagEl = document.getElementById('eval-delta-tag');
+  const refScoreEl = document.getElementById('eval-refined-oqi');
+  const refTierEl = document.getElementById('eval-refined-tier');
+  const verdictEl = document.getElementById('quality-verdict-box');
+
+  if (baseScoreEl) baseScoreEl.innerText = `${baseOQI}%`;
+  if (baseTierEl) {
+    baseTierEl.innerText = baseTier;
+    baseTierEl.className = `score-tier-tag ${baseTier.toLowerCase()}`;
   }
 
-  if (baseEval && deltaEl) {
-    const delta = oqi - (baseEval.overallQualityIndex ?? 8);
-    deltaEl.innerText = `+${delta} pts improvement`;
+  if (refScoreEl) refScoreEl.innerText = `${refOQI}%`;
+  if (refTierEl) {
+    refTierEl.innerText = refTier;
+    refTierEl.className = `score-tier-tag ${refTier.toLowerCase()}`;
   }
 
-  const m = refEval.metrics || {};
-  const ambEl = document.getElementById('metric-val-ambiguity');
-  const testEl = document.getElementById('metric-val-testability');
-  const compEl = document.getElementById('metric-val-completeness');
-  const specEl = document.getElementById('metric-val-specificity');
-  const traceEl = document.getElementById('metric-val-traceability');
+  if (deltaTagEl) {
+    deltaTagEl.innerText = `+${delta}% Δ Gain`;
+  }
 
-  if (ambEl) ambEl.innerText = `${m.ambiguity?.score ?? 0}%`;
-  if (testEl) testEl.innerText = `${m.testability?.score ?? 100}%`;
-  if (compEl) compEl.innerText = `${m.completeness?.score ?? 100}%`;
-  if (specEl) specEl.innerText = `${m.specificity?.score ?? 90}%`;
-  if (traceEl) traceEl.innerText = `${m.traceability?.score ?? 100}%`;
+  if (verdictEl) {
+    verdictEl.innerText = `Quality improved by +${delta} points. Overall specification quality reached ${refOQI}% (${refTier}) compliant with ISO/IEC/IEEE 29148 principles.`;
+  }
 
+  const mRef = refEval.metrics || {};
+  const mBase = baseEval?.metrics || {};
+
+  // Ambiguity
+  const baseAmb = mBase.ambiguity?.score ?? 100;
+  const refAmb = mRef.ambiguity?.score ?? 0;
+  const ambDeltaEl = document.getElementById('amb-delta');
+  const valBaseAmb = document.getElementById('val-base-amb');
+  const valRefAmb = document.getElementById('val-ref-amb');
+  const barBaseAmb = document.getElementById('bar-base-amb');
+  const barRefAmb = document.getElementById('bar-ref-amb');
+
+  if (ambDeltaEl) ambDeltaEl.innerText = `-${baseAmb - refAmb}% reduction`;
+  if (valBaseAmb) valBaseAmb.innerText = `${baseAmb}%`;
+  if (valRefAmb) valRefAmb.innerText = `${refAmb}%`;
+  if (barBaseAmb) barBaseAmb.style.width = `${baseAmb}%`;
+  if (barRefAmb) barRefAmb.style.width = `${refAmb}%`;
+
+  // Testability
+  const baseTest = mBase.testability?.score ?? 0;
+  const refTest = mRef.testability?.score ?? 0;
+  const testDeltaEl = document.getElementById('test-delta');
+  const valBaseTest = document.getElementById('val-base-test');
+  const valRefTest = document.getElementById('val-ref-test');
+  const barBaseTest = document.getElementById('bar-base-test');
+  const barRefTest = document.getElementById('bar-ref-test');
+
+  if (testDeltaEl) testDeltaEl.innerText = `+${refTest - baseTest}% gain`;
+  if (valBaseTest) valBaseTest.innerText = `${baseTest}%`;
+  if (valRefTest) valRefTest.innerText = `${refTest}%`;
+  if (barBaseTest) barBaseTest.style.width = `${baseTest}%`;
+  if (barRefTest) barRefTest.style.width = `${refTest}%`;
+
+  // Completeness
+  const baseComp = mBase.completeness?.score ?? 0;
+  const refComp = mRef.completeness?.score ?? 0;
+  const compDeltaEl = document.getElementById('comp-delta');
+  const valBaseComp = document.getElementById('val-base-comp');
+  const valRefComp = document.getElementById('val-ref-comp');
+  const barBaseComp = document.getElementById('bar-base-comp');
+  const barRefComp = document.getElementById('bar-ref-comp');
+
+  if (compDeltaEl) compDeltaEl.innerText = `+${refComp - baseComp}% gain`;
+  if (valBaseComp) valBaseComp.innerText = `${baseComp}%`;
+  if (valRefComp) valRefComp.innerText = `${refComp}%`;
+  if (barBaseComp) barBaseComp.style.width = `${baseComp}%`;
+  if (barRefComp) barRefComp.style.width = `${refComp}%`;
+
+  // Specificity
+  const baseSpec = mBase.specificity?.score ?? 0;
+  const refSpec = mRef.specificity?.score ?? 0;
+  const specDeltaEl = document.getElementById('spec-delta');
+  const valBaseSpec = document.getElementById('val-base-spec');
+  const valRefSpec = document.getElementById('val-ref-spec');
+  const barBaseSpec = document.getElementById('bar-base-spec');
+  const barRefSpec = document.getElementById('bar-ref-spec');
+
+  if (specDeltaEl) specDeltaEl.innerText = `+${refSpec - baseSpec}% gain`;
+  if (valBaseSpec) valBaseSpec.innerText = `${baseSpec}%`;
+  if (valRefSpec) valRefSpec.innerText = `${refSpec}%`;
+  if (barBaseSpec) barBaseSpec.style.width = `${baseSpec}%`;
+  if (barRefSpec) barRefSpec.style.width = `${refSpec}%`;
+
+  // Update Radar Chart
   if (radarChart && baseEval) {
-    const baseM = baseEval.metrics || {};
     radarChart.data.datasets[0].data = [
-      100 - (baseM.ambiguity?.score ?? 100),
-      baseM.testability?.score ?? 0,
-      baseM.completeness?.score ?? 0,
-      baseM.specificity?.score ?? 0,
-      baseM.traceability?.score ?? 50
+      100 - baseAmb,
+      baseTest,
+      baseComp,
+      baseSpec,
+      mBase.traceability?.score ?? 50
     ];
     radarChart.data.datasets[1].data = [
-      100 - (m.ambiguity?.score ?? 0),
-      m.testability?.score ?? 100,
-      m.completeness?.score ?? 100,
-      m.specificity?.score ?? 90,
-      m.traceability?.score ?? 100
+      100 - refAmb,
+      refTest,
+      refComp,
+      refSpec,
+      mRef.traceability?.score ?? 100
     ];
     radarChart.update();
   }
 }
 
 function resetEvaluationDisplay() {
-  const oqiEl = document.getElementById('oqi-score-number');
-  const tierEl = document.getElementById('oqi-tier-badge');
-  const deltaEl = document.getElementById('oqi-delta-chip');
+  const baseScoreEl = document.getElementById('eval-baseline-oqi');
+  const baseTierEl = document.getElementById('eval-baseline-tier');
+  const deltaTagEl = document.getElementById('eval-delta-tag');
+  const refScoreEl = document.getElementById('eval-refined-oqi');
+  const refTierEl = document.getElementById('eval-refined-tier');
+  const verdictEl = document.getElementById('quality-verdict-box');
 
-  if (oqiEl) oqiEl.innerText = '-- / 100';
-  if (tierEl) {
-    tierEl.innerText = 'Awaiting Analysis';
-    tierEl.className = 'tier-badge poor';
-  }
-  if (deltaEl) deltaEl.innerText = '+0 pts improvement';
+  if (baseScoreEl) baseScoreEl.innerText = '0%';
+  if (baseTierEl) baseTierEl.innerText = 'Not evaluated';
+  if (deltaTagEl) deltaTagEl.innerText = '+0% Δ';
+  if (refScoreEl) refScoreEl.innerText = '0%';
+  if (refTierEl) refTierEl.innerText = 'Not evaluated';
+  if (verdictEl) verdictEl.innerText = 'Run the meeting analysis to calculate requirement quality.';
 
   if (radarChart) {
     radarChart.data.datasets[0].data = [0, 0, 0, 0, 0];
@@ -878,8 +981,11 @@ function startMic() {
 
   speechRecognitionInstance.start();
   isMicListening = true;
-  document.getElementById('btn-mic-toggle').classList.add('active');
-  document.getElementById('btn-mic-toggle').style.background = '#ef4444';
+  const btn = document.getElementById('btn-mic-toggle');
+  if (btn) {
+    btn.classList.add('active');
+    btn.style.background = '#ef4444';
+  }
 }
 
 function stopMic() {
@@ -989,7 +1095,8 @@ function downloadBlob(blob, filename) {
 }
 
 function escapeHtml(str) {
-  return (str || '')
+  if (!str) return '';
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
@@ -998,7 +1105,7 @@ function escapeHtml(str) {
 }
 
 function escapeRegex(str) {
-  return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function localAnalyzeUtterance(text, speaker, timestamp) {

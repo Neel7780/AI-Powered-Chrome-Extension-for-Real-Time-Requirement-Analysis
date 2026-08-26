@@ -72,6 +72,7 @@ def health_check():
 
 # Specific sample data route for Webapp compatibility
 @app.get("/api/sample-data")
+@app.get("/api/analyze/samples")
 def get_sample_data():
     sample_path = settings.BASE_DIR / "server" / "data" / "sample-transcripts.json"
     if sample_path.exists():

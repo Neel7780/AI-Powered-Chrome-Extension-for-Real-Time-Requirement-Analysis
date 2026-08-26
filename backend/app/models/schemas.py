@@ -11,9 +11,8 @@ class Utterance(BaseModel):
     detectedFlags: Optional[List[Dict[str, Any]]] = None
 
 class TranscriptPayload(BaseModel):
-    transcript: Union[str, List[Dict[str, Any]]] = Field(
-        ..., description="Raw text transcript or list of utterance objects"
-    )
+    transcript: Optional[Union[str, List[Dict[str, Any]]]] = None
+    utterances: Optional[Union[str, List[Dict[str, Any]]]] = None
     domain: Optional[str] = "General Software"
 
 class AmbiguityFlag(BaseModel):
@@ -37,6 +36,7 @@ class ClarificationQuestion(BaseModel):
     question: str
     triggeredBy: Optional[str] = None
     suggestedOptions: List[str] = Field(default_factory=list)
+    options: Optional[List[str]] = None
     selectedResponse: Optional[str] = None
     provenance: Optional[str] = None
 
@@ -45,7 +45,8 @@ class ClarificationResponsePayload(BaseModel):
     selectedResponse: str
 
 class ClarifyRequest(BaseModel):
-    transcript: Union[str, List[Dict[str, Any]]]
+    transcript: Optional[Union[str, List[Dict[str, Any]]]] = None
+    utterances: Optional[Union[str, List[Dict[str, Any]]]] = None
     existingClarifications: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
 
 class ClarifyResponse(BaseModel):
@@ -76,7 +77,7 @@ class FunctionalRequirement(BaseModel):
 class NonFunctionalRequirement(BaseModel):
     id: str
     title: str
-    category: str
+    category: str = "Performance"
     description: str
     priority: str = "Critical"
     status: RequirementStatus = RequirementStatus.PENDING_CLARIFICATION
@@ -98,7 +99,8 @@ class RequirementSet(BaseModel):
     nfrs: List[NonFunctionalRequirement] = Field(default_factory=list)
 
 class RefinementPayload(BaseModel):
-    transcript: Union[str, List[Dict[str, Any]]]
+    transcript: Optional[Union[str, List[Dict[str, Any]]]] = None
+    utterances: Optional[Union[str, List[Dict[str, Any]]]] = None
     questions: Optional[List[Union[str, Dict[str, Any]]]] = Field(default_factory=list)
     responses: Optional[List[Union[str, Dict[str, Any]]]] = Field(default_factory=list)
     clarifications: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
@@ -109,6 +111,7 @@ class RefinementResult(BaseModel):
     refined: RequirementSet
     clarifications: List[ClarificationQuestion] = Field(default_factory=list)
     metrics: Optional[Dict[str, Any]] = None
+    evaluation: Optional[Dict[str, Any]] = None
 
 # --- Quality Metrics Payloads ---
 
@@ -139,19 +142,20 @@ class ComparisonPayload(BaseModel):
     refined: Union[str, Dict[str, Any], RequirementSet]
 
 class ComparisonResult(BaseModel):
-    baseline_metrics: QualityEvaluation
-    refined_metrics: QualityEvaluation
+    baseline: Optional[QualityEvaluation] = None
+    refined: Optional[QualityEvaluation] = None
+    baseline_metrics: Optional[QualityEvaluation] = None
+    refined_metrics: Optional[QualityEvaluation] = None
     delta: ComparisonDelta
-    qualitative: Optional[str] = None
+    qualitativeNotes: Optional[str] = None
 
 # --- Export Payloads ---
 
 class ExportPayload(BaseModel):
-    title: Optional[str] = "AI-Powered Requirement Analysis Report"
-    transcript: Optional[Union[str, List[Dict[str, Any]]]] = ""
+    title: Optional[str] = "AI-Powered Requirement Analysis & Quality Report"
+    transcript: Optional[Union[str, List[Dict[str, Any]]]] = None
+    utterances: Optional[Union[str, List[Dict[str, Any]]]] = None
     clarifications: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
-    baseline: Optional[Union[str, Dict[str, Any], RequirementSet]] = None
-    refined: Optional[Union[str, Dict[str, Any], RequirementSet]] = None
-    evaluation: Optional[Union[str, Dict[str, Any]]] = None
-    questions: Optional[List[str]] = Field(default_factory=list)
-    responses: Optional[List[str]] = Field(default_factory=list)
+    baseline: Optional[Union[Dict[str, Any], RequirementSet, str]] = None
+    refined: Optional[Union[Dict[str, Any], RequirementSet, str]] = None
+    evaluation: Optional[Dict[str, Any]] = None

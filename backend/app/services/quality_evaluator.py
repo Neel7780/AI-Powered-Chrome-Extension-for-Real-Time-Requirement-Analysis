@@ -247,6 +247,8 @@ class QualityEvaluator:
         )
 
         return ComparisonResult(
+            baseline=baseline_eval,
+            refined=refined_eval,
             baseline_metrics=baseline_eval,
             refined_metrics=refined_eval,
             delta=delta

@@ -16,6 +16,7 @@ def refine_requirements(payload: RefinementPayload):
     Generate REFINED requirements strictly based on confirmed stakeholder decisions.
     Unanswered items remain PENDING_CLARIFICATION with unquantified thresholds.
     """
+    transcript_input = payload.transcript or payload.utterances or []
     clarifications_input = payload.clarifications or []
     
     # Handle parallel questions/responses array inputs (e.g. from popup or reference format)
@@ -31,7 +32,7 @@ def refine_requirements(payload: RefinementPayload):
 
     # 1. Synthesize Baseline & Refined RequirementSets
     baseline_set, refined_set = requirement_engine.generate_requirements(
-        payload.transcript,
+        transcript_input,
         clarifications_input,
         domain=payload.domain or "HR Tech"
     )
@@ -44,8 +45,8 @@ def refine_requirements(payload: RefinementPayload):
     # 3. Optional LangChain contextual synthesis
     llm_refined_text = None
     if llm_service.is_available():
-        raw_text = payload.transcript if isinstance(payload.transcript, str) else "\n".join(
-            f"{u.get('speaker', 'Speaker')}: {u.get('text', '')}" for u in payload.transcript
+        raw_text = transcript_input if isinstance(transcript_input, str) else "\n".join(
+            f"{u.get('speaker', 'Speaker')}: {u.get('text', '')}" for u in transcript_input
         )
         q_str = "\n".join(f"- {c.get('question', '')}" for c in clarifications_input)
         r_str = "\n".join(f"- {c.get('selectedResponse', '')}" for c in clarifications_input)
@@ -55,15 +56,22 @@ def refine_requirements(payload: RefinementPayload):
         )
         llm_refined_text = res
 
+    eval_dict = {
+        "baseline": baseline_eval.model_dump(),
+        "refined": refined_eval.model_dump(),
+        "comparison": comparison.model_dump()
+    }
+
     return {
         "success": True,
         "baseline": baseline_set.model_dump(),
         "refined": refined_set.model_dump(),
-        "evaluation": {
-            "baseline": baseline_eval.model_dump(),
-            "refined": refined_eval.model_dump(),
-            "comparison": comparison.model_dump()
-        },
+        "evaluation": eval_dict,
         "metrics": refined_eval.model_dump(),
-        "llm_refined_text": llm_refined_text
+        "llm_refined_text": llm_refined_text,
+        "data": {
+            "baseline": baseline_set.model_dump(),
+            "refined": refined_set.model_dump(),
+            "evaluation": eval_dict
+        }
     }
