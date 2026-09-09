@@ -305,22 +305,23 @@
         "id": "FR-04",
         "title": "Role-Based Recruiter & Hiring Manager Dashboard",
         "category": "Functional",
-        "description": "The system shall provide secure role-based portals for HR Recruiters and Hiring Managers to upload job descriptions, trigger bulk resume scoring, and export shortlists.",
+        "description": "The system shall support the recruiter workflow for submitting job descriptions and reviewing candidate shortlists; access-control details require stakeholder clarification.",
         "priority": "Must Have",
-        "status": "RESOLVED",
+        "status": "PENDING_CLARIFICATION",
         "source": "RAW_DIALOGUE",
         "sourceClarificationId": null,
         "originalText": "We need to build an AI-based resume analyzer.",
-        "refinedText": "The system shall provide role-based access for recruiter workflow execution.",
-        "stakeholderEvidence": "Directly derived from core meeting objective.",
+        "refinedText": "Recruiter workflow and access-control requirements pending stakeholder clarification.",
+        "stakeholderEvidence": null,
         "acceptanceCriteria": [
-          "Given authenticated recruiter, When uploading JD, Then analysis job is dispatched.",
-          "Given unauthorized user, When accessing dashboard, Then HTTP 403 Forbidden is returned."
+          "The recruiter can submit a job description and review a candidate shortlist."
         ],
         "sourceStatement": "We need to build an AI-based resume analyzer.",
         "clarificationReference": null,
-        "verificationMethod": "Automated Security & End-to-End Workflow Test",
-        "ambiguityFlags": null
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "Authorization rules and recruiter workflow boundaries require clarification"
+        ]
       }
     ],
     "nfrs": [
@@ -424,47 +425,49 @@
         "id": "NFR-SEC-01",
         "title": "Candidate PII Protection & Data Privacy",
         "category": "Security",
-        "description": "Candidate personally identifiable information (PII) must be stored with AES-256 encryption at rest and TLS 1.3 in transit.",
+        "description": "Candidate personally identifiable information (PII) must be handled securely; the encryption and compliance baseline requires stakeholder clarification.",
         "priority": "Critical",
-        "status": "RESOLVED",
+        "status": "PENDING_CLARIFICATION",
         "source": "RAW_DIALOGUE",
         "sourceClarificationId": null,
         "originalText": "Candidate resumes contain personal contact information.",
-        "refinedText": "PII stored securely with AES-256 encryption at rest and TLS 1.3 in transit.",
+        "refinedText": "PII protection baseline pending stakeholder clarification.",
         "stakeholderEvidence": null,
-        "targetThreshold": "AES-256 encryption at rest, TLS 1.3 in transit, GDPR Article 32 compliant",
-        "metric": "100% encrypted candidate datastore",
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting encryption and compliance criteria",
         "acceptanceCriteria": [
-          "Given candidate resume upload, When stored in database, Then PII fields are encrypted with AES-256.",
-          "Given API communication, When data is in transit, Then TLS 1.3 is enforced."
+          "PII is handled securely"
         ],
         "sourceStatement": "Candidate resumes contain personal contact information.",
         "clarificationReference": null,
-        "verificationMethod": "Automated Security & Encryption Audit",
-        "ambiguityFlags": null
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "Encryption, access-control, retention, and compliance criteria are unspecified"
+        ]
       },
       {
         "id": "NFR-USAB-01",
         "title": "Recruiter Interface Usability Benchmark",
         "category": "Usability",
-        "description": "The recruiter dashboard interface shall achieve System Usability Scale (SUS) score >= 80.0.",
+        "description": "The recruiter dashboard interface shall be usable for daily recruiter tasks; the usability benchmark requires stakeholder clarification.",
         "priority": "Medium",
-        "status": "RESOLVED",
+        "status": "PENDING_CLARIFICATION",
         "source": "RAW_DIALOGUE",
         "sourceClarificationId": null,
         "originalText": "HR recruiters will use this dashboard daily.",
-        "refinedText": "Interface usability compliant with System Usability Scale (SUS) score >= 80.0.",
+        "refinedText": "Recruiter usability benchmark pending stakeholder clarification.",
         "stakeholderEvidence": null,
-        "targetThreshold": "System Usability Scale (SUS) >= 80.0",
-        "metric": "SUS Usability Benchmark",
+        "targetThreshold": "Unspecified - Awaiting Stakeholder Clarification",
+        "metric": "Awaiting usability benchmark",
         "acceptanceCriteria": [
-          "Given first-time recruiter user, When evaluating candidate shortlist, Then task completion occurs in < 3 minutes without formal training.",
-          "Given usability evaluation with 10 HR users, When scored, Then average SUS score exceeds 80.0."
+          "Recruiters can complete core shortlist tasks"
         ],
         "sourceStatement": "HR recruiters will use this dashboard daily.",
         "clarificationReference": null,
-        "verificationMethod": "User Usability Testing",
-        "ambiguityFlags": null
+        "verificationMethod": null,
+        "ambiguityFlags": [
+          "Usability benchmark and core task definition are unspecified"
+        ]
       }
     ]
   },
@@ -511,28 +514,28 @@
       }
     },
     "refined": {
-      "overallQualityIndex": 31,
-      "qualityTier": "Poor",
+      "overallQualityIndex": 8,
+      "qualityTier": "Critical",
       "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
       "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
       "metrics": {
         "ambiguity": {
-          "score": 70,
+          "score": 100,
           "label": "Ambiguity Level",
           "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
         },
         "completeness": {
-          "score": 31,
+          "score": 0,
           "label": "Completeness Coverage",
           "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
         },
         "testability": {
-          "score": 30,
+          "score": 0,
           "label": "Testability & Verifiability",
           "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
         },
         "specificity": {
-          "score": 20,
+          "score": 0,
           "label": "Specificity & Measurability",
           "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
         },
@@ -546,9 +549,9 @@
         "totalRequirements": 10,
         "functionalRequirements": 4,
         "nonFunctionalRequirements": 6,
-        "resolvedCount": 3,
-        "pendingCount": 7,
-        "flaggedAmbiguities": 7
+        "resolvedCount": 0,
+        "pendingCount": 10,
+        "flaggedAmbiguities": 10
       }
     },
     "comparison": {
@@ -594,28 +597,28 @@
         }
       },
       "refined": {
-        "overallQualityIndex": 31,
-        "qualityTier": "Poor",
+        "overallQualityIndex": 8,
+        "qualityTier": "Critical",
         "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
         "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
         "metrics": {
           "ambiguity": {
-            "score": 70,
+            "score": 100,
             "label": "Ambiguity Level",
             "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
           },
           "completeness": {
-            "score": 31,
+            "score": 0,
             "label": "Completeness Coverage",
             "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
           },
           "testability": {
-            "score": 30,
+            "score": 0,
             "label": "Testability & Verifiability",
             "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
           },
           "specificity": {
-            "score": 20,
+            "score": 0,
             "label": "Specificity & Measurability",
             "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
           },
@@ -629,9 +632,9 @@
           "totalRequirements": 10,
           "functionalRequirements": 4,
           "nonFunctionalRequirements": 6,
-          "resolvedCount": 3,
-          "pendingCount": 7,
-          "flaggedAmbiguities": 7
+          "resolvedCount": 0,
+          "pendingCount": 10,
+          "flaggedAmbiguities": 10
         }
       },
       "baseline_metrics": {
@@ -676,28 +679,28 @@
         }
       },
       "refined_metrics": {
-        "overallQualityIndex": 31,
-        "qualityTier": "Poor",
+        "overallQualityIndex": 8,
+        "qualityTier": "Critical",
         "standardAlignment": "Informed by ISO/IEC/IEEE 29148 Principles",
         "disclaimer": "Demo Simulation \u2014 Stakeholder responses are simulated to demonstrate the clarification workflow.",
         "metrics": {
           "ambiguity": {
-            "score": 70,
+            "score": 100,
             "label": "Ambiguity Level",
             "description": "Proportion of requirements with unresolved vagueness or pending stakeholder decisions (lower is better)."
           },
           "completeness": {
-            "score": 31,
+            "score": 0,
             "label": "Completeness Coverage",
             "description": "Coverage of resolved functional requirements and necessary NFR dimensions."
           },
           "testability": {
-            "score": 30,
+            "score": 0,
             "label": "Testability & Verifiability",
             "description": "Proportion of requirements with objective, quantifiable acceptance criteria and verification methods."
           },
           "specificity": {
-            "score": 20,
+            "score": 0,
             "label": "Specificity & Measurability",
             "description": "Proportion of requirements with explicit, non-empty numerical thresholds and metrics."
           },
@@ -711,18 +714,18 @@
           "totalRequirements": 10,
           "functionalRequirements": 4,
           "nonFunctionalRequirements": 6,
-          "resolvedCount": 3,
-          "pendingCount": 7,
-          "flaggedAmbiguities": 7
+          "resolvedCount": 0,
+          "pendingCount": 10,
+          "flaggedAmbiguities": 10
         }
       },
       "delta": {
-        "oqiImprovement": 23,
-        "percentImprovement": 287.5,
-        "ambiguityReduction": 30,
-        "testabilityGain": 30,
-        "specificityGain": 20,
-        "completenessGain": 31,
+        "oqiImprovement": 0,
+        "percentImprovement": 0.0,
+        "ambiguityReduction": 0,
+        "testabilityGain": 0,
+        "specificityGain": 0,
+        "completenessGain": 0,
         "traceabilityGain": 0
       },
       "qualitativeNotes": null

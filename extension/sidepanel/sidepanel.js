@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load PDF Sample Meeting
   document.getElementById('btn-load-pdf-sample')?.addEventListener('click', loadSamplePDFMeeting);
+  document.getElementById('btn-finalize')?.addEventListener('click', finalizeMeeting);
 
   // Clear all data
   document.getElementById('btn-clear-all')?.addEventListener('click', async () => {
@@ -241,7 +242,20 @@ async function loadSamplePDFMeeting() {
     }
   }
 
+  await finalizeMeeting();
   fetchSessionState();
+}
+
+async function finalizeMeeting() {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/session/finalize`, { method: 'POST' });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) applySynchronizedState(json.data);
+    }
+  } catch {
+    // The live transcript remains available if the backend is unavailable.
+  }
 }
 
 function renderAll() {

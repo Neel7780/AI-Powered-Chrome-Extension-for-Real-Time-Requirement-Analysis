@@ -359,19 +359,19 @@ class RequirementEngine:
                 id="FR-04",
                 title="Role-Based Recruiter & Hiring Manager Dashboard",
                 category="Functional",
-                description="The system shall provide secure role-based portals for HR Recruiters and Hiring Managers to upload job descriptions, trigger bulk resume scoring, and export shortlists.",
+                description="The system shall support the recruiter workflow for submitting job descriptions and reviewing candidate shortlists; access-control details require stakeholder clarification.",
                 priority="Must Have",
-                status=RequirementStatus.RESOLVED,
+                status=RequirementStatus.PENDING_CLARIFICATION,
                 source=RequirementSource.RAW_DIALOGUE,
                 originalText="We need to build an AI-based resume analyzer.",
-                refinedText="The system shall provide role-based access for recruiter workflow execution.",
-                stakeholderEvidence="Directly derived from core meeting objective.",
+                refinedText="Recruiter workflow and access-control requirements pending stakeholder clarification.",
+                stakeholderEvidence=None,
                 acceptanceCriteria=[
-                    "Given authenticated recruiter, When uploading JD, Then analysis job is dispatched.",
-                    "Given unauthorized user, When accessing dashboard, Then HTTP 403 Forbidden is returned."
+                    "The recruiter can submit a job description and review a candidate shortlist."
                 ],
                 sourceStatement="We need to build an AI-based resume analyzer.",
-                verificationMethod="Automated Security & End-to-End Workflow Test"
+                verificationMethod=None,
+                ambiguityFlags=["Authorization rules and recruiter workflow boundaries require clarification"]
             )
         ]
 
@@ -482,20 +482,18 @@ class RequirementEngine:
                 id="NFR-SEC-01",
                 title="Candidate PII Protection & Data Privacy",
                 category="Security",
-                description="Candidate personally identifiable information (PII) must be stored with AES-256 encryption at rest and TLS 1.3 in transit.",
+                description="Candidate personally identifiable information (PII) must be handled securely; the encryption and compliance baseline requires stakeholder clarification.",
                 priority="Critical",
-                status=RequirementStatus.RESOLVED,
+                status=RequirementStatus.PENDING_CLARIFICATION,
                 source=RequirementSource.RAW_DIALOGUE,
                 originalText="Candidate resumes contain personal contact information.",
-                refinedText="PII stored securely with AES-256 encryption at rest and TLS 1.3 in transit.",
-                targetThreshold="AES-256 encryption at rest, TLS 1.3 in transit, GDPR Article 32 compliant",
-                metric="100% encrypted candidate datastore",
-                acceptanceCriteria=[
-                    "Given candidate resume upload, When stored in database, Then PII fields are encrypted with AES-256.",
-                    "Given API communication, When data is in transit, Then TLS 1.3 is enforced."
-                ],
+                refinedText="PII protection baseline pending stakeholder clarification.",
+                targetThreshold="Unspecified - Awaiting Stakeholder Clarification",
+                metric="Awaiting encryption and compliance criteria",
+                acceptanceCriteria=["PII is handled securely"],
                 sourceStatement="Candidate resumes contain personal contact information.",
-                verificationMethod="Automated Security & Encryption Audit"
+                verificationMethod=None,
+                ambiguityFlags=["Encryption, access-control, retention, and compliance criteria are unspecified"]
             ),
 
             # NFR-USAB-01: Recruiter Usability
@@ -503,20 +501,18 @@ class RequirementEngine:
                 id="NFR-USAB-01",
                 title="Recruiter Interface Usability Benchmark",
                 category="Usability",
-                description="The recruiter dashboard interface shall achieve System Usability Scale (SUS) score >= 80.0.",
+                description="The recruiter dashboard interface shall be usable for daily recruiter tasks; the usability benchmark requires stakeholder clarification.",
                 priority="Medium",
-                status=RequirementStatus.RESOLVED,
+                status=RequirementStatus.PENDING_CLARIFICATION,
                 source=RequirementSource.RAW_DIALOGUE,
                 originalText="HR recruiters will use this dashboard daily.",
-                refinedText="Interface usability compliant with System Usability Scale (SUS) score >= 80.0.",
-                targetThreshold="System Usability Scale (SUS) >= 80.0",
-                metric="SUS Usability Benchmark",
-                acceptanceCriteria=[
-                    "Given first-time recruiter user, When evaluating candidate shortlist, Then task completion occurs in < 3 minutes without formal training.",
-                    "Given usability evaluation with 10 HR users, When scored, Then average SUS score exceeds 80.0."
-                ],
+                refinedText="Recruiter usability benchmark pending stakeholder clarification.",
+                targetThreshold="Unspecified - Awaiting Stakeholder Clarification",
+                metric="Awaiting usability benchmark",
+                acceptanceCriteria=["Recruiters can complete core shortlist tasks"],
                 sourceStatement="HR recruiters will use this dashboard daily.",
-                verificationMethod="User Usability Testing"
+                verificationMethod=None,
+                ambiguityFlags=["Usability benchmark and core task definition are unspecified"]
             )
         ]
 

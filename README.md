@@ -47,7 +47,7 @@ flowchart TB
     subgraph FastAPIBackend["3. FastAPI & LangChain AI Engine"]
         API[FastAPI REST Router]
         LC[LangChain LCEL Chains]
-        GEM[ChatGoogleGenerativeAI - Gemini 3.1 Flash Lite]
+        GEM[ChatGoogleGenerativeAI - Gemini 2.5 Flash]
         NLP[Deterministic Rule Fallback]
         AD[Contextual Ambiguity Detector]
         QG[Clarification Question Generator]

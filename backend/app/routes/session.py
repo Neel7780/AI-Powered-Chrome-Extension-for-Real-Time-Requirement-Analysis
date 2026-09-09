@@ -62,6 +62,16 @@ async def reset_session_endpoint():
         "data": state
     }
 
+@router.post("/api/session/finalize")
+async def finalize_session_endpoint():
+    """Publishes FR/NFR and quality results after transcript capture is complete."""
+    state = session_manager.finalize_session()
+    await session_manager.broadcast("SESSION_FINALIZED", state)
+    return {
+        "success": True,
+        "data": state
+    }
+
 @router.post("/api/session/utterance")
 async def add_session_utterance_endpoint(payload: AddUtterancePayload):
     """
@@ -138,6 +148,10 @@ async def websocket_session_endpoint(websocket: WebSocket):
                 elif msg_type == "RESET_SESSION":
                     state = session_manager.reset_session()
                     await session_manager.broadcast("SESSION_RESET", state)
+
+                elif msg_type == "FINALIZE_SESSION":
+                    state = session_manager.finalize_session()
+                    await session_manager.broadcast("SESSION_FINALIZED", state)
 
                 elif msg_type == "SYNC_STATE":
                     state = session_manager.sync_bulk_state(

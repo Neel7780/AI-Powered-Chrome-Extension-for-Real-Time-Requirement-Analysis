@@ -33,6 +33,7 @@ class SessionManager:
         self.refined: Dict[str, Any] = {"frs": [], "nfrs": []}
         self.evaluation: Dict[str, Any] = {}
         self.is_active: bool = False
+        self.is_finalized: bool = False
         self.created_at: str = datetime.now().isoformat()
         self.updated_at: str = datetime.now().isoformat()
         
@@ -84,15 +85,16 @@ class SessionManager:
             "isActive": self.is_active,
             "transcript": self.transcript,
             "clarifications": self.clarifications,
-            "baseline": self.baseline,
-            "refined": self.refined,
-            "evaluation": self.evaluation,
+            "isFinalized": self.is_finalized,
+            "baseline": self.baseline if self.is_finalized else {"frs": [], "nfrs": []},
+            "refined": self.refined if self.is_finalized else {"frs": [], "nfrs": []},
+            "evaluation": self.evaluation if self.is_finalized else {},
             "stats": {
                 "transcriptCount": len(self.transcript),
                 "clarificationCount": len(self.clarifications),
                 "resolvedCount": sum(1 for c in self.clarifications if c.get("selectedResponse")),
                 "ambiguityCount": sum(len(u.get("detectedFlags", [])) for u in self.transcript),
-                "overallQualityIndex": 0 if not self.transcript else self.evaluation.get("refined", {}).get("overallQualityIndex", 8)
+                "overallQualityIndex": self.evaluation.get("refined", {}).get("overallQualityIndex", 0) if self.is_finalized else 0
             },
             "createdAt": self.created_at,
             "updatedAt": self.updated_at
@@ -104,6 +106,7 @@ class SessionManager:
         self.transcript = []
         self.clarifications = []
         self.is_active = True
+        self.is_finalized = False
         self.created_at = datetime.now().isoformat()
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
@@ -113,16 +116,39 @@ class SessionManager:
         self.transcript = []
         self.clarifications = []
         self.is_active = False
+        self.is_finalized = False
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
         return self.get_state()
+
+    def finalize_session(self) -> Dict[str, Any]:
+        """Publishes the requirement and quality results for the completed meeting."""
+        self.is_active = False
+        self.is_finalized = True
+        self.updated_at = datetime.now().isoformat()
+        self._recalculate()
+        return self.get_state()
+
+    def _is_ui_noise(self, text: str) -> bool:
+        if not text or len(text.strip()) < 3:
+            return True
+        lower = text.lower()
+        ui_keywords = [
+            "turn off microphone", "turn on microphone", "turn off camera", "turn on camera",
+            "turn on captions", "turn off captions", "share screen", "raise hand", "leave call",
+            "meeting details", "host controls", "open the hover tray", "backgrounds and effects",
+            "audio settings", "video settings", "show more info", "send a reaction",
+            "(ctrl + d)", "(ctrl + e)", "(ctrl + alt + h)", "(c or shift + c)",
+            "frame_person", "visual_effects", "keyboard_arrow_", "more_vert"
+        ]
+        return any(kw in lower for kw in ui_keywords)
 
     def add_utterance(self, text: str, speaker: str = "Speaker", timestamp: Optional[str] = None) -> Dict[str, Any]:
         """
         Adds utterance, detects ambiguities in real time, generates clarification questions,
         and recalculates the requirement board & quality scores.
         """
-        if not text or not text.strip():
+        if not text or not text.strip() or self._is_ui_noise(text):
             return self.get_state()
 
         time_str = timestamp or datetime.now().strftime("%H:%M:%S")
@@ -186,6 +212,7 @@ class SessionManager:
             self.domain = domain
 
         self.is_active = True
+        self.is_finalized = False
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
         return self.get_state()
@@ -194,6 +221,12 @@ class SessionManager:
         """
         Recomputes Baseline, Refined Requirements, and Quality Evaluations.
         """
+        if not self.is_finalized:
+            self.baseline = {"frs": [], "nfrs": []}
+            self.refined = {"frs": [], "nfrs": []}
+            self.evaluation = {}
+            return
+
         base_set, ref_set = requirement_engine.generate_requirements(
             self.transcript,
             self.clarifications,

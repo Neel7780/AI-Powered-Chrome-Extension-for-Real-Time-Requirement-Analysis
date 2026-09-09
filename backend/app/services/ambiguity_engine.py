@@ -59,6 +59,42 @@ AMBIGUITY_RULES = [
         ]
     },
     {
+        "patterns": [r"\beasy to use\b", r"\buser[- ]friendly\b", r"\bintuitive\b"],
+        "category": "Usability",
+        "severity": "Medium",
+        "reason": "Subjective usability claim without a measurable task-completion or usability benchmark.",
+        "suggestedSLO": "Recruiters complete core shortlist tasks with SUS >= 80 and task success >= 90%",
+        "options": [
+            "System Usability Scale (SUS) >= 80 with task success >= 90%",
+            "Recruiters complete core tasks in under 2 minutes with >= 90% success",
+            "Define usability targets during stakeholder usability testing"
+        ]
+    },
+    {
+        "patterns": [r"\breliable\b", r"\bdependable\b", r"\bavailable\b"],
+        "category": "Reliability",
+        "severity": "High",
+        "reason": "Reliability claim lacks an availability target, recovery objective, or failure-handling requirement.",
+        "suggestedSLO": "Monthly availability >= 99.9% with defined recovery objectives",
+        "options": [
+            "Monthly availability >= 99.9% with automated health checks",
+            "Availability >= 99.95% with RTO <= 30 minutes and RPO <= 5 minutes",
+            "Define availability and recovery targets with stakeholders"
+        ]
+    },
+    {
+        "patterns": [r"\bsecure\b", r"\bprotect payment information\b", r"\bsecurity\b"],
+        "category": "Security",
+        "severity": "Critical",
+        "reason": "Broad security claim lacks concrete encryption, access-control, and audit requirements.",
+        "suggestedSLO": "TLS 1.3 in transit, AES-256 at rest, RBAC, and security audit logging",
+        "options": [
+            "TLS 1.3 in transit, AES-256 at rest, RBAC, and audit logging",
+            "OWASP ASVS Level 2 controls with quarterly security testing",
+            "Define applicable security and compliance baseline with stakeholders"
+        ]
+    },
+    {
         "patterns": [r"\bmainly\b", r"\bgood companies\b", r"\bsolid projects\b", r"\bstrong fresher\b", r"\boverall profile strength\b"],
         "category": "Ranking Algorithm",
         "severity": "High",
@@ -149,8 +185,10 @@ class AmbiguityEngine:
         # Run deterministic rules
         rule_flags, rule_score = self.detect_ambiguities_rule_based(text)
         
-        # If LLM is available, invoke contextual clarification chain
-        if llm_service.is_available():
+        # Only use the LLM to enrich statements already flagged by grounded
+        # rules. A free-form chain response must not turn every utterance into
+        # an ambiguity merely because it contains the word "ambiguous".
+        if rule_flags and llm_service.is_available():
             try:
                 res, model_used = llm_service.invoke_with_fallback(
                     build_clarify_chain,
@@ -158,8 +196,8 @@ class AmbiguityEngine:
                 )
                 if res and len(res.strip()) > 0:
                     return AmbiguityAnalysisResult(
-                        isAmbiguous=len(rule_flags) > 0 or "AMBIGUOUS" in res.upper(),
-                        ambiguityScore=rule_score if rule_flags else 65,
+                        isAmbiguous=True,
+                        ambiguityScore=rule_score,
                         detectedFlags=rule_flags,
                         engine=f"LangChain ({model_used})"
                     )
@@ -226,6 +264,42 @@ class AmbiguityEngine:
                     "Interactive candidate scorecard showing matched skills %, project impact score, and top 3 justification reasons",
                     "SHAP/LIME feature importance waterfall chart rendered in < 500ms",
                     "Bullet-point summary highlighting matched job description criteria"
+                ]
+            )
+        elif re.search(r"easy to use|user[- ]friendly|intuitive", lower):
+            return ClarificationQuestion(
+                id=q_id,
+                category="Usability",
+                question="What measurable usability target should the system meet?",
+                triggeredBy=text,
+                suggestedOptions=[
+                    "SUS >= 80 with task success >= 90%",
+                    "Core tasks completed in under 2 minutes with >= 90% success",
+                    "Define usability targets during stakeholder testing"
+                ]
+            )
+        elif re.search(r"reliable|dependable|available", lower):
+            return ClarificationQuestion(
+                id=q_id,
+                category="Reliability",
+                question="What availability and recovery targets should define reliability?",
+                triggeredBy=text,
+                suggestedOptions=[
+                    "Monthly availability >= 99.9% with automated health checks",
+                    "Availability >= 99.95% with RTO <= 30 minutes and RPO <= 5 minutes",
+                    "Define availability and recovery targets with stakeholders"
+                ]
+            )
+        elif re.search(r"secure|protect payment information|security", lower):
+            return ClarificationQuestion(
+                id=q_id,
+                category="Security",
+                question="Which measurable security controls and compliance baseline are required?",
+                triggeredBy=text,
+                suggestedOptions=[
+                    "TLS 1.3 in transit, AES-256 at rest, RBAC, and audit logging",
+                    "OWASP ASVS Level 2 controls with quarterly security testing",
+                    "Define applicable security and compliance baseline with stakeholders"
                 ]
             )
         elif re.search(r"solid|projects|companies|strength|formula|fresher|weight", lower):

@@ -17,9 +17,9 @@ def test_r1_questions_generate_validation():
     assert res["success"] is True
     assert res["data"]["category"] == "Performance"
 
-def test_r2_every_answered_clarification_resolves_all_ten():
+def test_r2_answered_clarifications_resolve_only_supported_slots():
     """
-    Test R2: All 7 answered clarifications resolve 10/10 requirements with OQI 100/100.
+    Test R2: Seven answered clarifications resolve only their supported requirement slots.
     """
     sample_clarifications = [
         {"id": "q-perf-01", "category": "Performance", "selectedResponse": "Single resume < 1.5s (p95)"},
@@ -33,12 +33,12 @@ def test_r2_every_answered_clarification_resolves_all_ten():
     baseline, refined = requirement_engine.generate_requirements([], sample_clarifications, "HR Tech")
     all_reqs = list(refined.frs) + list(refined.nfrs)
     pending = [r for r in all_reqs if r.status == RequirementStatus.PENDING_CLARIFICATION]
-    assert len(pending) == 0
+    assert len(pending) == 3
     assert len(all_reqs) == 10
 
     eval_res = quality_evaluator.evaluate_requirement_set(refined)
-    assert eval_res.overallQualityIndex >= 90
-    assert eval_res.metrics["ambiguity"].score == 0
+    assert eval_res.overallQualityIndex >= 65
+    assert eval_res.metrics["ambiguity"].score > 0
 
 def test_r3_no_cross_slot_leakage():
     """

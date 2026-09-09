@@ -63,14 +63,21 @@ function applyIncomingSessionState(state) {
     activeTranscript = state.transcript || [];
     activeClarifications = state.clarifications || [];
 
-    if (state.baseline && state.refined) {
+    if (activeTranscript.length === 0) {
+      // An empty synchronized session is authoritative. Do not retain derived
+      // requirements or evaluation from a previous meeting in the UI.
+      currentRequirements = null;
+      currentEvaluation = null;
+    } else if (state.baseline && state.refined) {
       currentRequirements = {
         baseline: state.baseline,
         refined: state.refined
       };
-    }
-    if (state.evaluation && Object.keys(state.evaluation).length > 0) {
-      currentEvaluation = state.evaluation;
+      if (state.evaluation && Object.keys(state.evaluation).length > 0) {
+        currentEvaluation = state.evaluation;
+      } else {
+        currentEvaluation = null;
+      }
     }
 
     renderFeedFromTranscript();
@@ -149,12 +156,12 @@ async function loadScenarioData() {
     }];
   }
 
-  selectScenario('resume-analyzer-assignment');
+  await selectScenario('resume-analyzer-assignment');
 }
 
-function selectScenario(scenarioId) {
+async function selectScenario(scenarioId) {
   stopSimulation();
-  resetMeetingState();
+  await resetMeetingState();
 
   if (scenarioId === 'custom') {
     document.getElementById('custom-drawer').style.display = 'block';
@@ -265,8 +272,9 @@ function startSimulation() {
       return;
     }
     const u = currentScenario.utterances[simulationIndex];
-    processNewUtterance(u.text, u.speaker, u.timestamp);
+    const processing = processNewUtterance(u.text, u.speaker, u.timestamp);
     simulationIndex++;
+    if (simulationIndex >= currentScenario.utterances.length) processing.then(finalizeSession);
   }, interval);
 }
 
@@ -298,6 +306,17 @@ async function loadEntireMeetingInstantly() {
 
   for (const u of utterances) {
     await processNewUtterance(u.text, u.speaker, u.timestamp);
+  }
+  await finalizeSession();
+}
+
+async function finalizeSession() {
+  try {
+    const res = await fetch('/api/session/finalize', { method: 'POST' });
+    const json = await res.json();
+    if (json.success && json.data) applyIncomingSessionState(json.data);
+  } catch (e) {
+    console.error('Error finalizing meeting:', e);
   }
 }
 
@@ -755,7 +774,7 @@ function initRadarChart() {
       datasets: [
         {
           label: 'Without Clarification (Baseline)',
-          data: [0, 0, 0, 0, 50],
+          data: [0, 0, 0, 0, 0],
           borderColor: '#ef4444',
           backgroundColor: 'rgba(239, 68, 68, 0.15)',
           pointBackgroundColor: '#ef4444',
@@ -763,7 +782,7 @@ function initRadarChart() {
         },
         {
           label: 'With Clarification (Refined)',
-          data: [100, 100, 100, 90, 100],
+          data: [0, 0, 0, 0, 0],
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.25)',
           pointBackgroundColor: '#10b981',
@@ -797,12 +816,12 @@ function updateQualityEvaluationDisplay() {
   const refEval = currentEvaluation.refined || currentEvaluation;
   const baseEval = currentEvaluation.baseline;
 
-  const baseOQI = baseEval?.overallQualityIndex ?? 8;
-  const refOQI = refEval?.overallQualityIndex ?? 8;
+  const baseOQI = baseEval?.overallQualityIndex ?? 0;
+  const refOQI = refEval?.overallQualityIndex ?? 0;
   const delta = refOQI - baseOQI;
 
-  const baseTier = baseEval?.qualityTier || 'Poor';
-  const refTier = refEval?.qualityTier || (refOQI >= 85 ? 'Excellent' : refOQI >= 60 ? 'Good' : 'Poor');
+  const baseTier = baseEval?.qualityTier || 'Not evaluated';
+  const refTier = refEval?.qualityTier || 'Not evaluated';
 
   // DOM elements in webapp/index.html
   const baseScoreEl = document.getElementById('eval-baseline-oqi');
@@ -836,7 +855,7 @@ function updateQualityEvaluationDisplay() {
   const mBase = baseEval?.metrics || {};
 
   // Ambiguity
-  const baseAmb = mBase.ambiguity?.score ?? 100;
+  const baseAmb = mBase.ambiguity?.score ?? 0;
   const refAmb = mRef.ambiguity?.score ?? 0;
   const ambDeltaEl = document.getElementById('amb-delta');
   const valBaseAmb = document.getElementById('val-base-amb');
@@ -902,14 +921,14 @@ function updateQualityEvaluationDisplay() {
       baseTest,
       baseComp,
       baseSpec,
-      mBase.traceability?.score ?? 50
+      mBase.traceability?.score ?? 0
     ];
     radarChart.data.datasets[1].data = [
       100 - refAmb,
       refTest,
       refComp,
       refSpec,
-      mRef.traceability?.score ?? 100
+      mRef.traceability?.score ?? 0
     ];
     radarChart.update();
   }
