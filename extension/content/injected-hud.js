@@ -39,6 +39,7 @@
           <span class="ai-re-hud-badge" id="ai-re-ambiguity-badge">0 Ambiguities</span>
         </div>
         <div class="ai-re-hud-actions">
+          <button class="ai-re-btn-icon" id="ai-re-btn-mic" title="Toggle Direct Microphone Transcription">🎙️</button>
           <button class="ai-re-btn-icon" id="ai-re-btn-sidepanel" title="Open Full Sidepanel">⧉</button>
           <button class="ai-re-btn-icon" id="ai-re-btn-toggle" title="Minimize / Expand">_</button>
         </div>
@@ -46,7 +47,7 @@
       <div class="ai-re-hud-body" id="ai-re-hud-body">
         <div class="ai-re-live-feed" id="ai-re-live-feed">
           <div class="ai-re-feed-speaker">AI Transcript Observer Active</div>
-          <div id="ai-re-feed-text" style="color: #94a3b8; font-style: italic;">Listening for meeting speech...</div>
+          <div id="ai-re-feed-text" style="color: #94a3b8; font-style: italic;">Listening for meeting speech (CC or 🎙️ Mic)...</div>
         </div>
         <div id="ai-re-question-slot"></div>
       </div>
@@ -62,6 +63,19 @@
 
     document.getElementById('ai-re-hud-header').addEventListener('click', () => {
       if (isMinimized) toggleMinimize();
+    });
+
+    document.getElementById('ai-re-btn-mic')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const btn = document.getElementById('ai-re-btn-mic');
+      const isListening = window.MeetObserver?.toggleMic ? window.MeetObserver.toggleMic() : false;
+      if (isListening) {
+        btn.style.background = '#ef4444';
+        btn.title = 'Direct Mic Active (Listening...)';
+      } else {
+        btn.style.background = '';
+        btn.title = 'Toggle Direct Microphone Transcription';
+      }
     });
 
     document.getElementById('ai-re-btn-sidepanel').addEventListener('click', (e) => {

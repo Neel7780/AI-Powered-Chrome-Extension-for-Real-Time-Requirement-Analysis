@@ -1,48 +1,33 @@
 /**
  * Google Meet & Microsoft Teams Caption Observer
- * Captures ONLY authentic participant speech from live closed captions and transcripts.
- * Rejects UI controls, meeting toolbars, buttons, and tray noise.
+ * Captures live participant speech from closed captions and transcripts.
+ * Works seamlessly whether alone in a call or in a multi-participant meeting.
  */
 
 (function () {
-  console.log('[AI RE] Meet & Teams Speech Observer initialized');
+  console.log('[AI RE] 🚀 Google Meet Speech Observer loaded and active');
 
-  // Specific caption text leaf selectors (NEVER match container/root elements like .T4LgNb)
-  const CAPTION_LEAF_SELECTORS = [
-    '[jsname="tgaKEf"]',                         // Google Meet closed caption text span/div
-    'div[jsname="YSvySm"] .bh44bd',              // Google Meet caption content block
-    'div[jsname="YSvySm"] .VbkSUe',              // Google Meet alternate caption span
-    '.cnK48d',                                   // Google Meet transcript side panel item
-    '[data-tid="closed-caption-text"]',          // Microsoft Teams closed caption text
-    '[data-tid="caption-text-body"]'             // Microsoft Teams transcript text body
+  // DOM Selectors for caption containers and text nodes in modern Google Meet
+  const MEET_SELECTORS = [
+    'div[aria-live="polite"]',
+    'div[aria-live="assertive"]',
+    '[jsname="tgaKEf"]',
+    'div[jsname="YSvySm"]',
+    '.bh44bd',
+    '.VbkSUe',
+    '.nMx2nd',
+    '.cnK48d',
+    '[data-tid="closed-caption-text"]',
+    '[data-tid="caption-text-body"]'
   ];
-
-  // Disallowed parent containers (UI controls, button trays, toolbars, settings dialogs)
-  const DISALLOWED_CONTAINER_SELECTORS = [
-    'button',
-    '[role="button"]',
-    '[role="toolbar"]',
-    '[role="menu"]',
-    '[role="navigation"]',
-    '[role="tablist"]',
-    'nav',
-    'header',
-    'footer',
-    '[jscontroller="kAPstc"]',                   // Google Meet bottom control bar
-    '[aria-label*="hover tray" i]',
-    '[aria-label*="Meeting details" i]',
-    '.google-material-icons'
-  ];
-
-  // Active utterance buffer per speaker to handle streaming caption updates
-  const speakerBuffers = new Map(); // speaker -> { text, timer, timestamp }
-  const DEBOUNCE_PAUSE_MS = 1400;   // Wait 1.4s after speaker pauses to finalize line
-  const emittedSentences = new Set(); // Prevent duplicate emissions
 
   let observer = null;
+  let lastEmittedText = '';
+  let pendingBuffer = { text: '', speaker: 'You', timer: null };
+  const emittedHashes = new Set();
 
   /**
-   * Filters out any Google Meet / Teams control-bar UI noise, button labels, and shortcut keys.
+   * Identifies and rejects Google Meet control-bar UI noise, buttons, and shortcuts.
    */
   function isMeetingUINoise(text) {
     if (!text || typeof text !== 'string') return true;
@@ -51,7 +36,6 @@
 
     const lower = trimmed.toLowerCase();
 
-    // Known UI control terms and meeting tool descriptions
     const uiNoisePhrases = [
       'press down arrow',
       'open the hover tray',
@@ -82,7 +66,7 @@
       if (lower.includes(phrase)) return true;
     }
 
-    // Keyboard shortcut hints in UI
+    // Keyboard shortcut hints
     if (/\(ctrl\s*\+\s*[a-z0-9]\)/i.test(trimmed) ||
         /\(ctrl\s*\+\s*alt\s*\+\s*[a-z0-9]\)/i.test(trimmed) ||
         /\(c\s+or\s+shift\s*\+\s*c\)/i.test(trimmed)) {
@@ -99,7 +83,7 @@
       return true;
     }
 
-    // Must contain letters (actual speech), not just timestamps or symbols
+    // Must contain actual speech words
     if (!/[a-zA-Z]{2,}/.test(trimmed)) {
       return true;
     }
@@ -108,67 +92,69 @@
   }
 
   /**
-   * Cleans text to extract only the spoken sentence.
+   * Extracts speaker name and cleaned speech content from a caption node or text.
    */
-  function cleanSpokenText(rawText, speaker) {
-    if (!rawText) return '';
-    let cleaned = rawText.trim();
+  function parseSpeakerAndContent(node, rawText) {
+    let speaker = 'You';
+    let content = rawText.trim();
 
-    // Strip leading speaker name if repeated (e.g., "Neel Khatri: Hello" -> "Hello")
-    if (speaker && speaker !== 'Participant') {
-      const speakerRegex = new RegExp(`^${escapeRegex(speaker)}[:\\s\\n-]*`, 'i');
-      cleaned = cleaned.replace(speakerRegex, '').trim();
+    // 1. Check parent container for explicit speaker elements
+    const unit = node.closest('[jsname="YSvySm"], .nMx2nd, div[aria-live="polite"], div[aria-live="assertive"]') || node;
+    const speakerNode = unit.querySelector('[jsname="W297wb"], .NWqnrd, .zs75Bi, .speaker-name, [data-tid="author-avatar"]');
+    if (speakerNode && speakerNode.innerText) {
+      const name = speakerNode.innerText.trim();
+      if (name && !isMeetingUINoise(name)) {
+        speaker = name;
+      }
+    } else {
+      const imgEl = unit.querySelector('img[alt], .K6W0Fd');
+      if (imgEl && imgEl.getAttribute('alt')) {
+        const alt = imgEl.getAttribute('alt').trim();
+        if (alt && !isMeetingUINoise(alt)) {
+          speaker = alt;
+        }
+      }
     }
 
-    // Clean internal excess whitespace
-    cleaned = cleaned.replace(/\s+/g, ' ');
-    return cleaned;
-  }
+    // 2. Check if content begins with speaker name (e.g., "You: Hello" or "Neel Khatri: Hello")
+    const colonIdx = content.indexOf(':');
+    if (colonIdx > 0 && colonIdx < 30) {
+      const possibleSpeaker = content.substring(0, colonIdx).trim();
+      if (possibleSpeaker.length > 1 && !isMeetingUINoise(possibleSpeaker)) {
+        speaker = possibleSpeaker;
+        content = content.substring(colonIdx + 1).trim();
+      }
+    }
 
-  function escapeRegex(str) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Strip leading speaker name if duplicated
+    if (speaker && speaker !== 'You') {
+      const escaped = speaker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      content = content.replace(new RegExp(`^${escaped}[:\\s\\n-]*`, 'i'), '').trim();
+    } else if (content.toLowerCase().startsWith('you:')) {
+      content = content.substring(4).trim();
+    }
+
+    content = content.replace(/\s+/g, ' ').trim();
+    return { speaker, content };
   }
 
   /**
-   * Extracts speaker name from the caption unit container.
+   * Emits the completed utterance to the extension service worker and injected HUD.
    */
-  function extractSpeaker(node) {
-    const unit = node.closest('[jsname="YSvySm"], div[jscontroller="D1tHje"], [data-tid*="caption"], .nMx2nd');
-    if (!unit) return 'Participant';
-
-    // Check specific speaker name nodes
-    const nameEl = unit.querySelector('[jsname="W297wb"], .NWqnrd, .zs75Bi, .speaker-name, [data-tid="author-avatar"]');
-    if (nameEl && nameEl.innerText) {
-      const name = nameEl.innerText.trim();
-      if (name && !isMeetingUINoise(name)) return name;
-    }
-
-    // Check avatar image alt
-    const imgEl = unit.querySelector('img[alt], .K6W0Fd');
-    if (imgEl && imgEl.getAttribute('alt')) {
-      const alt = imgEl.getAttribute('alt').trim();
-      if (alt && !isMeetingUINoise(alt)) return alt;
-    }
-
-    return 'Participant';
-  }
-
-  /**
-   * Finalizes and broadcasts a completed speech utterance.
-   */
-  function emitCompletedUtterance(speaker, text) {
+  function emitSpeech(speaker, text) {
     if (!text || text.length < 3) return;
     if (isMeetingUINoise(text)) return;
 
-    // Deduplicate identical sentences
-    const hash = `${speaker}:${text}`;
-    if (emittedSentences.has(hash)) return;
-    emittedSentences.add(hash);
-    if (emittedSentences.size > 200) {
-      const first = emittedSentences.values().next().value;
-      emittedSentences.delete(first);
+    // Deduplicate identical emissions within short time
+    const hash = `${speaker}:${text.toLowerCase()}`;
+    if (emittedHashes.has(hash)) return;
+    emittedHashes.add(hash);
+    if (emittedHashes.size > 200) {
+      const first = emittedHashes.values().next().value;
+      emittedHashes.delete(first);
     }
 
+    lastEmittedText = text;
     const timestamp = new Date().toTimeString().slice(3, 8);
     console.log(`[AI RE] 🎙️ Captured Speech: [${speaker}] "${text}"`);
 
@@ -193,74 +179,124 @@
   }
 
   /**
-   * Buffers streaming live caption words and emits completed sentences.
+   * Stabilizes streaming live captions and emits when speaker finishes or pauses.
    */
-  function handleLiveCaptionStream(speaker, rawText) {
-    const text = cleanSpokenText(rawText, speaker);
-    if (!text || isMeetingUINoise(text)) return;
+  function handleCaptionUpdate(speaker, content) {
+    if (!content || isMeetingUINoise(content)) return;
+    if (content === lastEmittedText) return;
 
-    const existing = speakerBuffers.get(speaker);
-
-    if (existing) {
-      // Clear pending pause timer
-      clearTimeout(existing.timer);
-
-      // Check if sentence finished with terminal punctuation (. ? !)
-      const endsWithSentencePunct = /[.?!]$/.test(text.trim());
-      const isSubstantialLength = text.length > 35;
-
-      if (endsWithSentencePunct && text.length > 15) {
-        // Complete sentence detected
-        speakerBuffers.delete(speaker);
-        emitCompletedUtterance(speaker, text);
-        return;
-      }
-
-      // Otherwise, update buffer and set pause timer
-      existing.text = text;
-      existing.timer = setTimeout(() => {
-        speakerBuffers.delete(speaker);
-        emitCompletedUtterance(speaker, text);
-      }, DEBOUNCE_PAUSE_MS);
-    } else {
-      // New speaker buffer
-      const timer = setTimeout(() => {
-        speakerBuffers.delete(speaker);
-        emitCompletedUtterance(speaker, text);
-      }, DEBOUNCE_PAUSE_MS);
-
-      speakerBuffers.set(speaker, { text, timer, timestamp: Date.now() });
+    // Check if sentence finished with punctuation
+    const endsWithTerminalPunct = /[.?!]$/.test(content);
+    if (endsWithTerminalPunct && content.length > 12) {
+      if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
+      emitSpeech(speaker, content);
+      return;
     }
+
+    // Set responsive 600ms stabilization timer
+    if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
+    pendingBuffer = {
+      text: content,
+      speaker: speaker,
+      timer: setTimeout(() => {
+        emitSpeech(speaker, content);
+      }, 600)
+    };
   }
 
   /**
-   * Main scan function triggered by DOM mutations.
+   * Scans Google Meet DOM for live captions.
    */
-  function scanCaptions() {
-    for (const selector of CAPTION_LEAF_SELECTORS) {
-      const nodes = document.querySelectorAll(selector);
-      nodes.forEach(node => {
-        // 1. Verify this is NOT inside any button, toolbar, or control tray
-        if (node.closest(DISALLOWED_CONTAINER_SELECTORS.join(', '))) {
-          return;
+  function scanGoogleMeetDOM() {
+    // 1. Direct check on aria-live containers
+    const ariaContainers = document.querySelectorAll('div[aria-live="polite"], div[aria-live="assertive"]');
+    ariaContainers.forEach(container => {
+      // Find caption spans inside
+      const captionSpans = container.querySelectorAll('[jsname="tgaKEf"], .bh44bd, .VbkSUe, span');
+      if (captionSpans.length > 0) {
+        captionSpans.forEach(span => {
+          if (span.closest('button, [role="button"]')) return;
+          const text = span.innerText?.trim();
+          if (text && text.length >= 3 && !isMeetingUINoise(text)) {
+            const { speaker, content } = parseSpeakerAndContent(span, text);
+            handleCaptionUpdate(speaker, content);
+          }
+        });
+      } else {
+        const text = container.innerText?.trim();
+        if (text && text.length >= 3 && !isMeetingUINoise(text)) {
+          const { speaker, content } = parseSpeakerAndContent(container, text);
+          handleCaptionUpdate(speaker, content);
         }
+      }
+    });
 
-        // 2. Verify this is inside an actual caption / transcript container
-        const captionContainer = node.closest('[jsname="YSvySm"], div[jscontroller="D1tHje"], .iO50fd, [data-tid*="caption"], .a4cQT, .cnK48d');
-        if (!captionContainer) {
-          return;
+    // 2. Specific Google Meet leaf elements
+    const leafNodes = document.querySelectorAll('[jsname="tgaKEf"], .bh44bd, .VbkSUe, .cnK48d');
+    leafNodes.forEach(node => {
+      if (node.closest('button, [role="button"]')) return;
+      const text = node.innerText?.trim();
+      if (text && text.length >= 3 && !isMeetingUINoise(text)) {
+        const { speaker, content } = parseSpeakerAndContent(node, text);
+        handleCaptionUpdate(speaker, content);
+      }
+    });
+  }
+
+  /**
+   * In-Meeting Direct Web Speech Recognition Fallback
+   * Allows transcribing speech directly from the mic if Meet captions are delayed.
+   */
+  let speechRecognition = null;
+  let isMicListening = false;
+
+  function initDirectMicSpeech() {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    speechRecognition = new SpeechRec();
+    speechRecognition.continuous = true;
+    speechRecognition.interimResults = true;
+    speechRecognition.lang = 'en-US';
+
+    speechRecognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          const transcript = result[0].transcript.trim();
+          if (transcript && !isMeetingUINoise(transcript)) {
+            console.log('[AI RE] 🎙️ Direct Mic Transcript:', transcript);
+            emitSpeech('You', transcript);
+          }
         }
+      }
+    };
 
-        const rawText = node.innerText?.trim();
-        if (!rawText || rawText.length < 2) return;
+    speechRecognition.onerror = (e) => {
+      console.warn('[AI RE] Direct mic error:', e.error);
+    };
 
-        // 3. Filter out any meeting UI noise
-        if (isMeetingUINoise(rawText)) return;
+    speechRecognition.onend = () => {
+      if (isMicListening) {
+        try { speechRecognition.start(); } catch {}
+      }
+    };
+  }
 
-        // 4. Extract speaker and process speech
-        const speaker = extractSpeaker(node);
-        handleLiveCaptionStream(speaker, rawText);
-      });
+  function toggleDirectMic() {
+    if (!speechRecognition) initDirectMicSpeech();
+    if (!speechRecognition) return false;
+
+    if (isMicListening) {
+      isMicListening = false;
+      try { speechRecognition.stop(); } catch {}
+      console.log('[AI RE] Direct mic stopped');
+      return false;
+    } else {
+      isMicListening = true;
+      try { speechRecognition.start(); } catch {}
+      console.log('[AI RE] Direct mic listening...');
+      return true;
     }
   }
 
@@ -268,7 +304,7 @@
     if (observer) return;
 
     observer = new MutationObserver(() => {
-      scanCaptions();
+      scanGoogleMeetDOM();
     });
 
     observer.observe(document.body, {
@@ -277,7 +313,8 @@
       characterData: true
     });
 
-    console.log('[AI RE] Meet & Teams Speech Observer active');
+    console.log('[AI RE] Google Meet DOM MutationObserver active');
+    initDirectMicSpeech();
   }
 
   if (window.location.hostname.includes('meet.google.com') || window.location.hostname.includes('teams.microsoft.com')) {
@@ -285,5 +322,9 @@
     setTimeout(initMeetObserver, 1500);
   }
 
-  window.MeetObserver = { init: initMeetObserver };
+  window.MeetObserver = {
+    init: initMeetObserver,
+    toggleMic: toggleDirectMic,
+    scanNow: scanGoogleMeetDOM
+  };
 })();

@@ -7,6 +7,7 @@ transcripts, real-time ambiguities, and stakeholder clarification answers.
 import json
 import sqlite3
 import logging
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -85,13 +86,13 @@ class DatabaseManager:
 
     def create_meeting(self, title: str = "Live Meeting", domain: str = "HR Tech", meeting_id: Optional[str] = None) -> str:
         """Creates a new meeting record and marks it active while marking other meetings inactive."""
-        mid = meeting_id or f"meet_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        mid = meeting_id or f"meet_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:6]}"
         now = datetime.now().isoformat()
         with self._get_connection() as conn:
             # Mark previous meetings inactive
             conn.execute("UPDATE meetings SET is_active = 0 WHERE is_active = 1")
             conn.execute(
-                "INSERT INTO meetings (id, title, domain, is_active, is_finalized, created_at, updated_at) VALUES (?, ?, ?, 1, 0, ?, ?)",
+                "INSERT OR REPLACE INTO meetings (id, title, domain, is_active, is_finalized, created_at, updated_at) VALUES (?, ?, ?, 1, 0, ?, ?)",
                 (mid, title, domain, now, now)
             )
         logger.info(f"Created new meeting session {mid} - '{title}'")
