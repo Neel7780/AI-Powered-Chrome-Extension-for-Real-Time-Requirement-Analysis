@@ -89,10 +89,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btn-new-meeting')?.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'START_NEW_MEETING' }, () => {
+    chrome.runtime.sendMessage({ type: 'START_RECORDING' }, () => {
       refreshState();
     });
   });
+
+  document.getElementById('btn-end-meeting')?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'END_RECORDING' }, () => {
+      refreshState();
+    });
+  });
+
 
   btnLoadSample.addEventListener('click', () => {
     const sample = window.EXT_SAMPLE_TRANSCRIPTS?.[0];

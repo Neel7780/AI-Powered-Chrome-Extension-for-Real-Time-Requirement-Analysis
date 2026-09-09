@@ -22,6 +22,7 @@
   ];
 
   let observer = null;
+  let isCapturingActive = false;
   let lastEmittedText = '';
   let pendingBuffer = { text: '', speaker: 'You', timer: null };
   const emittedHashes = new Set();
@@ -142,6 +143,9 @@
    * Emits the completed utterance to the extension service worker and injected HUD.
    */
   function emitSpeech(speaker, text) {
+    if (!isCapturingActive) {
+      return;
+    }
     if (!text || text.length < 3) return;
     if (isMeetingUINoise(text)) return;
 
@@ -322,9 +326,49 @@
     setTimeout(initMeetObserver, 1500);
   }
 
+  // Listen for recording state changes from Sidepanel, HUD, or Webapp
+  chrome.runtime?.onMessage?.addListener((message) => {
+    if (message.type === 'RECORDING_STATE_CHANGED') {
+      isCapturingActive = !!message.payload?.isRecording;
+      console.log(`[AI RE Meet] Recording state changed: ${isCapturingActive}`);
+      if (isCapturingActive) {
+        emittedHashes.clear();
+        lastEmittedText = '';
+      } else {
+        if (isMicListening) toggleDirectMic();
+      }
+      if (window.InjectedHUD?.setRecordingState) {
+        window.InjectedHUD.setRecordingState(isCapturingActive);
+      }
+    }
+  });
+
+  // Query background for current recording status on load
+  chrome.runtime?.sendMessage?.({ type: 'GET_RECORDING_STATUS' }, (res) => {
+    if (res && res.isRecording) {
+      isCapturingActive = true;
+      if (window.InjectedHUD?.setRecordingState) {
+        window.InjectedHUD.setRecordingState(true);
+      }
+    }
+  });
+
   window.MeetObserver = {
     init: initMeetObserver,
     toggleMic: toggleDirectMic,
-    scanNow: scanGoogleMeetDOM
+    scanNow: scanGoogleMeetDOM,
+    startCapturing: () => {
+      isCapturingActive = true;
+      emittedHashes.clear();
+      lastEmittedText = '';
+      if (window.InjectedHUD?.setRecordingState) window.InjectedHUD.setRecordingState(true);
+    },
+    stopCapturing: () => {
+      isCapturingActive = false;
+      if (isMicListening) toggleDirectMic();
+      if (window.InjectedHUD?.setRecordingState) window.InjectedHUD.setRecordingState(false);
+    },
+    isCapturing: () => isCapturingActive
   };
 })();
+

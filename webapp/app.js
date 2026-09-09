@@ -87,10 +87,12 @@ function applyIncomingSessionState(state) {
     renderRequirementsBoard();
     renderTransformationDiff();
     updateQualityEvaluationDisplay();
+    setWebTranscribingUI(!!state.isRecording || (state.isActive && !state.isFinalized));
   } finally {
     isApplyingSync = false;
   }
 }
+
 
 function renderFeedFromTranscript() {
   const feed = document.getElementById('transcript-feed-area');
@@ -184,8 +186,11 @@ function setupEventListeners() {
     selectScenario(e.target.value);
   });
 
-  document.getElementById('btn-web-new-meeting')?.addEventListener('click', createNewMeetingInDB);
+  document.getElementById('btn-web-start-transcribe')?.addEventListener('click', startTranscribingWeb);
+  document.getElementById('btn-web-end-transcribe')?.addEventListener('click', endMeetingAndSaveWeb);
+  document.getElementById('btn-web-new-meeting')?.addEventListener('click', startTranscribingWeb);
   document.getElementById('db-meeting-select')?.addEventListener('change', (e) => switchMeetingFromDB(e.target.value));
+
 
   document.getElementById('btn-play-pause')?.addEventListener('click', togglePlaySimulation);
   document.getElementById('btn-step-next')?.addEventListener('click', stepSimulation);
@@ -275,16 +280,28 @@ async function loadDatabaseMeetings(selectedId = null) {
   }
 }
 
-async function createNewMeetingInDB() {
-  const defaultTitle = `Live Meeting ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  const title = prompt('Enter a title for this new meeting session:', defaultTitle);
-  if (!title) return;
+function setWebTranscribingUI(isRecording) {
+  const btnStart = document.getElementById('btn-web-start-transcribe');
+  const btnEnd = document.getElementById('btn-web-end-transcribe');
+
+  if (isRecording) {
+    if (btnStart) btnStart.style.display = 'none';
+    if (btnEnd) btnEnd.style.display = 'inline-flex';
+  } else {
+    if (btnStart) btnStart.style.display = 'inline-flex';
+    if (btnEnd) btnEnd.style.display = 'none';
+  }
+}
+
+async function startTranscribingWeb() {
+  const defaultTitle = `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  setWebTranscribingUI(true);
 
   try {
     const res = await fetch('/api/meetings/new', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, domain: 'HR Tech' })
+      body: JSON.stringify({ title: defaultTitle, domain: 'HR Tech' })
     });
     const json = await res.json();
     if (json.success && json.data) {
@@ -296,9 +313,32 @@ async function createNewMeetingInDB() {
       await loadDatabaseMeetings(json.data.sessionId);
     }
   } catch (e) {
-    console.error('Error creating new meeting:', e);
+    console.error('Error starting meeting transcribing:', e);
   }
 }
+
+async function endMeetingAndSaveWeb() {
+  setWebTranscribingUI(false);
+
+  try {
+    const res = await fetch('/api/session/end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const json = await res.json();
+    if (json.success && json.data) {
+      applyIncomingSessionState(json.data);
+      await loadDatabaseMeetings(json.data.sessionId);
+    }
+  } catch (e) {
+    console.error('Error ending meeting:', e);
+  }
+}
+
+async function createNewMeetingInDB() {
+  return startTranscribingWeb();
+}
+
 
 async function switchMeetingFromDB(meetingId) {
   if (!meetingId) return;

@@ -48,6 +48,7 @@ class SessionManager:
         self.refined = {"frs": [], "nfrs": []}
         self.evaluation = {}
         self.is_active = True
+        self.is_recording = True
         self.is_finalized = False
         self.created_at = datetime.now().isoformat()
         self.updated_at = datetime.now().isoformat()
@@ -63,6 +64,7 @@ class SessionManager:
         self.evaluation = d.get("evaluation", {})
         self.is_active = d.get("isActive", True)
         self.is_finalized = d.get("isFinalized", False)
+        self.is_recording = bool(self.is_active and not self.is_finalized)
         self.created_at = d.get("createdAt", datetime.now().isoformat())
         self.updated_at = d.get("updatedAt", datetime.now().isoformat())
         if self.transcript and (not self.baseline.get("frs")):
@@ -106,6 +108,7 @@ class SessionManager:
             "sessionTitle": self.session_title,
             "domain": self.domain,
             "isActive": self.is_active,
+            "isRecording": getattr(self, "is_recording", False),
             "isFinalized": self.is_finalized,
             "transcript": self.transcript,
             "clarifications": self.clarifications,
@@ -126,6 +129,7 @@ class SessionManager:
     def start_session(self, title: str = "Live Meeting", domain: str = "HR Tech") -> Dict[str, Any]:
         """Starts a BRAND NEW isolated meeting session in the database."""
         self._init_fresh_session(title=title, domain=domain)
+        self.is_recording = True
         self._recalculate()
         return self.get_state()
 
@@ -139,6 +143,7 @@ class SessionManager:
         self.refined = {"frs": [], "nfrs": []}
         self.evaluation = {}
         self.is_active = True
+        self.is_recording = True
         self.is_finalized = False
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
@@ -147,6 +152,7 @@ class SessionManager:
     def finalize_session(self) -> Dict[str, Any]:
         """Finalizes the meeting session and persists status."""
         self.is_active = False
+        self.is_recording = False
         self.is_finalized = True
         self.updated_at = datetime.now().isoformat()
         db_manager.finalize_meeting(self.session_id)

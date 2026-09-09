@@ -26,6 +26,8 @@
     return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  let isRecording = false;
+
   function createHUD() {
     if (document.getElementById('ai-re-hud-container')) return;
 
@@ -34,11 +36,12 @@
     hudContainer.innerHTML = `
       <div class="ai-re-hud-header" id="ai-re-hud-header">
         <div class="ai-re-hud-title-area">
-          <div class="ai-re-pulse-dot"></div>
-          <span class="ai-re-hud-title">Requirement AI Copilot</span>
+          <div class="ai-re-pulse-dot" id="ai-re-pulse-dot" style="background: #94a3b8; box-shadow: none;"></div>
+          <span class="ai-re-hud-title">Requirement AI</span>
           <span class="ai-re-hud-badge" id="ai-re-ambiguity-badge">0 Ambiguities</span>
         </div>
         <div class="ai-re-hud-actions">
+          <button class="ai-re-btn-session-toggle" id="ai-re-btn-session-toggle" title="Start live detection of meeting transcripts">▶ Start</button>
           <button class="ai-re-btn-icon" id="ai-re-btn-mic" title="Toggle Direct Microphone Transcription">🎙️</button>
           <button class="ai-re-btn-icon" id="ai-re-btn-sidepanel" title="Open Full Sidepanel">⧉</button>
           <button class="ai-re-btn-icon" id="ai-re-btn-toggle" title="Minimize / Expand">_</button>
@@ -46,8 +49,8 @@
       </div>
       <div class="ai-re-hud-body" id="ai-re-hud-body">
         <div class="ai-re-live-feed" id="ai-re-live-feed">
-          <div class="ai-re-feed-speaker">AI Transcript Observer Active</div>
-          <div id="ai-re-feed-text" style="color: #94a3b8; font-style: italic;">Listening for meeting speech (CC or 🎙️ Mic)...</div>
+          <div class="ai-re-feed-speaker" id="ai-re-feed-status-title">Detection Paused</div>
+          <div id="ai-re-feed-text" style="color: #94a3b8; font-style: italic;">Click "▶ Start" above to begin detecting Google Meet speech and storing in SQLite DB.</div>
         </div>
         <div id="ai-re-question-slot"></div>
       </div>
@@ -56,6 +59,19 @@
     document.body.appendChild(hudContainer);
 
     // Event listeners
+    document.getElementById('ai-re-btn-session-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!isRecording) {
+        chrome.runtime.sendMessage({ type: 'START_RECORDING' }).catch(() => {});
+        if (window.MeetObserver?.startCapturing) window.MeetObserver.startCapturing();
+        setRecordingState(true);
+      } else {
+        chrome.runtime.sendMessage({ type: 'END_RECORDING' }).catch(() => {});
+        if (window.MeetObserver?.stopCapturing) window.MeetObserver.stopCapturing();
+        setRecordingState(false);
+      }
+    });
+
     document.getElementById('ai-re-btn-toggle').addEventListener('click', (e) => {
       e.stopPropagation();
       toggleMinimize();
@@ -82,6 +98,52 @@
       e.stopPropagation();
       chrome.runtime.sendMessage({ type: 'OPEN_SIDEPANEL' }).catch(() => {});
     });
+  }
+
+  function setRecordingState(rec) {
+    isRecording = rec;
+    const btn = document.getElementById('ai-re-btn-session-toggle');
+    const pulseDot = document.getElementById('ai-re-pulse-dot');
+    const statusTitle = document.getElementById('ai-re-feed-status-title');
+    const feedText = document.getElementById('ai-re-feed-text');
+
+    if (btn) {
+      if (rec) {
+        btn.innerHTML = '⏹ End &amp; Save';
+        btn.classList.add('recording');
+        btn.title = 'End meeting and save all data to SQLite Database';
+      } else {
+        btn.innerHTML = '▶ Start';
+        btn.classList.remove('recording');
+        btn.title = 'Start live detection of meeting transcripts';
+      }
+    }
+
+    if (pulseDot) {
+      if (rec) {
+        pulseDot.style.background = '#10b981';
+        pulseDot.style.boxShadow = '0 0 10px #10b981';
+      } else {
+        pulseDot.style.background = '#94a3b8';
+        pulseDot.style.boxShadow = 'none';
+      }
+    }
+
+    if (statusTitle && feedText) {
+      if (rec) {
+        statusTitle.innerText = '🟢 Transcribing Active';
+        statusTitle.style.color = '#34d399';
+        feedText.innerHTML = 'Listening for speech in Google Meet... Ambiguities will trigger instant questions.';
+        feedText.style.color = '#cbd5e1';
+        feedText.style.fontStyle = 'normal';
+      } else {
+        statusTitle.innerText = 'Detection Paused';
+        statusTitle.style.color = '#94a3b8';
+        feedText.innerHTML = '✓ Meeting ended and stored in SQLite database! Click "▶ Start" to transcribe a new meeting.';
+        feedText.style.color = '#a7f3d0';
+        feedText.style.fontStyle = 'italic';
+      }
+    }
   }
 
   function toggleMinimize() {
@@ -194,6 +256,8 @@
   window.InjectedHUD = {
     init: createHUD,
     displayUtterance,
-    renderClarificationQuestion
+    renderClarificationQuestion,
+    setRecordingState,
+    isRecording: () => isRecording
   };
 })();

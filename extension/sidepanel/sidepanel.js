@@ -65,12 +65,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') sendManualSpeech();
   });
 
+  // Live Transcribing Controls (Start detection / End meeting & save to SQLite DB)
+  document.getElementById('btn-transcribe-start')?.addEventListener('click', startTranscribing);
+  document.getElementById('btn-transcribe-end')?.addEventListener('click', endMeetingAndSave);
+
   // Load PDF Sample Meeting
   document.getElementById('btn-load-pdf-sample')?.addEventListener('click', loadSamplePDFMeeting);
   document.getElementById('btn-finalize')?.addEventListener('click', finalizeMeeting);
 
   // Start Brand New Meeting Session in SQLite DB
-  document.getElementById('btn-start-new-meeting')?.addEventListener('click', startNewMeetingSession);
+  document.getElementById('btn-start-new-meeting')?.addEventListener('click', startTranscribing);
   document.getElementById('select-meeting-history')?.addEventListener('change', (e) => switchMeetingSession(e.target.value));
 
   // Clear all data
@@ -85,9 +89,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     activeClarifications = [];
     generatedRequirements = null;
     qualityEvaluation = null;
+    setTranscribingUI(false);
     renderAll();
     loadMeetingsDropdown();
   });
+
 
   // Requirement Filter Chips
   document.querySelectorAll('.filter-chip').forEach(chip => {
@@ -123,6 +129,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } else if (message.type === 'SESSION_STATE_SYNC') {
         applySynchronizedState(message.payload || message.data);
+      } else if (message.type === 'RECORDING_STATE_CHANGED') {
+        const isRec = !!message.payload?.isRecording;
+        setTranscribingUI(isRec);
+        if (!isRec && message.payload?.data) {
+          showSaveConfirmation(message.payload.data);
+          loadMeetingsDropdown(message.payload.data.sessionId);
+        }
+      } else if (message.type === 'SESSION_FINALIZED') {
+        setTranscribingUI(false);
+        showSaveConfirmation(message.payload);
+        loadMeetingsDropdown(message.payload?.sessionId);
       } else if (message.type === 'CLARIFICATION_UPDATED') {
         activeClarifications = message.payload?.allClarifications || message.payload || [];
         updateRequirementsAndQuality();
@@ -135,8 +152,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderAll();
       }
     });
+
+    // Check background recording status on initialization
+    chrome.runtime.sendMessage({ type: 'GET_RECORDING_STATUS' }, (res) => {
+      if (res && res.isRecording) {
+        setTranscribingUI(true);
+      }
+    });
   }
 });
+
 
 /**
  * Connects to backend WebSocket session for 100% synchronized live stream.
@@ -251,29 +276,65 @@ async function loadMeetingsDropdown(selectedId = null) {
   }
 }
 
-async function startNewMeetingSession() {
-  const defaultTitle = `Live Meeting ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  const title = prompt('Enter title for new meeting session:', defaultTitle);
-  if (!title) return;
+function setTranscribingUI(isRecording) {
+  const btnStart = document.getElementById('btn-transcribe-start');
+  const btnEnd = document.getElementById('btn-transcribe-end');
+  const dot = document.getElementById('transcribe-dot');
+  const title = document.getElementById('transcribe-status-title');
+  const sub = document.getElementById('transcribe-status-sub');
 
+  if (isRecording) {
+    if (btnStart) btnStart.style.display = 'none';
+    if (btnEnd) btnEnd.style.display = 'inline-flex';
+    if (dot) dot.className = 'status-indicator-dot recording';
+    if (title) title.innerText = '🟢 Transcribing Active';
+    if (sub) sub.innerText = 'Listening for speech in Google Meet & detecting ambiguities...';
+  } else {
+    if (btnStart) btnStart.style.display = 'inline-flex';
+    if (btnEnd) btnEnd.style.display = 'none';
+    if (dot) dot.className = 'status-indicator-dot paused';
+    if (title) title.innerText = 'Detection Paused';
+    if (sub) sub.innerText = 'Click "Start Transcribing" to detect speech';
+  }
+}
+
+function showSaveConfirmation(data) {
+  const banner = document.getElementById('meeting-save-banner');
+  const text = document.getElementById('meeting-save-banner-text');
+  if (!banner || !text) return;
+
+  const tCount = data?.transcript ? data.transcript.length : activeTranscript.length;
+  const rCount = ((data?.refined?.frs?.length || 0) + (data?.refined?.nfrs?.length || 0)) || (generatedRequirements?.refined?.length || 0);
+
+  text.innerText = `✓ Meeting ended & stored in SQLite DB! (${tCount} speech lines, ${rCount} requirements saved)`;
+  banner.style.display = 'flex';
+  setTimeout(() => {
+    if (banner) banner.style.display = 'none';
+  }, 6000);
+}
+
+async function startTranscribing() {
+  const defaultTitle = `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  
   activeTranscript = [];
   activeClarifications = [];
   generatedRequirements = null;
   qualityEvaluation = null;
   renderAll();
+  setTranscribingUI(true);
 
   if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
     chrome.runtime.sendMessage({
-      type: 'START_NEW_MEETING',
-      payload: { title }
-    });
+      type: 'START_RECORDING',
+      payload: { title: defaultTitle, domain: 'HR Tech' }
+    }).catch(() => {});
   }
 
   try {
     const res = await fetch(`${SERVER_URL}/api/meetings/new`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, domain: 'HR Tech' })
+      body: JSON.stringify({ title: defaultTitle, domain: 'HR Tech' })
     });
     const json = await res.json();
     if (json.success && json.data) {
@@ -281,9 +342,37 @@ async function startNewMeetingSession() {
       await loadMeetingsDropdown(json.data.sessionId);
     }
   } catch (e) {
-    console.error('Error starting new meeting session:', e);
+    console.error('Error starting live meeting session:', e);
   }
 }
+
+async function endMeetingAndSave() {
+  setTranscribingUI(false);
+
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'END_RECORDING' }).catch(() => {});
+  }
+
+  try {
+    const res = await fetch(`${SERVER_URL}/api/session/end`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const json = await res.json();
+    if (json.success && json.data) {
+      applySynchronizedState(json.data);
+      showSaveConfirmation(json.data);
+      await loadMeetingsDropdown(json.data.sessionId);
+    }
+  } catch (e) {
+    console.error('Error ending meeting session:', e);
+  }
+}
+
+async function startNewMeetingSession() {
+  return startTranscribing();
+}
+
 
 async function switchMeetingSession(meetingId) {
   if (!meetingId) return;

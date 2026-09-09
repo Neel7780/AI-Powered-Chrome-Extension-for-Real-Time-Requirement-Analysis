@@ -117,7 +117,23 @@ async def finalize_session_endpoint():
     await session_manager.broadcast("SESSION_FINALIZED", state)
     return {
         "success": True,
-        "data": state
+        "data": state,
+        "meetings": session_manager.list_meetings()
+    }
+
+@router.post("/api/session/end")
+async def end_session_endpoint():
+    """
+    Explicitly ends active meeting transcribing session, performs final requirement extraction
+    and quality evaluation, and persists all meeting data into SQLite database.
+    """
+    state = session_manager.finalize_session()
+    await session_manager.broadcast("SESSION_FINALIZED", state)
+    return {
+        "success": True,
+        "message": f"Meeting {state.get('sessionId')} successfully ended and saved to database.",
+        "data": state,
+        "meetings": session_manager.list_meetings()
     }
 
 @router.post("/api/session/utterance")

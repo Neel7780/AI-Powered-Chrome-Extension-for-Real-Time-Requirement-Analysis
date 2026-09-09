@@ -30,6 +30,7 @@
   ];
 
   let observer = null;
+  let isCapturingActive = false;
   const emittedSentences = new Set();
   const speakerBuffers = new Map();
   const DEBOUNCE_PAUSE_MS = 1400;
@@ -80,6 +81,7 @@
   }
 
   function emitCompletedUtterance(speaker, text) {
+    if (!isCapturingActive) return;
     if (!text || text.length < 3) return;
     if (isMeetingUINoise(text)) return;
 
@@ -194,5 +196,44 @@
     setTimeout(initZoomObserver, 2000);
   }
 
-  window.ZoomObserver = { init: initZoomObserver };
+  // Listen for recording state changes from Sidepanel, HUD, or Webapp
+  chrome.runtime?.onMessage?.addListener((message) => {
+    if (message.type === 'RECORDING_STATE_CHANGED') {
+      isCapturingActive = !!message.payload?.isRecording;
+      console.log(`[AI RE Zoom] Recording state changed: ${isCapturingActive}`);
+      if (isCapturingActive) {
+        emittedSentences.clear();
+        speakerBuffers.clear();
+      }
+      if (window.InjectedHUD?.setRecordingState) {
+        window.InjectedHUD.setRecordingState(isCapturingActive);
+      }
+    }
+  });
+
+  // Query background for current recording status on load
+  chrome.runtime?.sendMessage?.({ type: 'GET_RECORDING_STATUS' }, (res) => {
+    if (res && res.isRecording) {
+      isCapturingActive = true;
+      if (window.InjectedHUD?.setRecordingState) {
+        window.InjectedHUD.setRecordingState(true);
+      }
+    }
+  });
+
+  window.ZoomObserver = {
+    init: initZoomObserver,
+    startCapturing: () => {
+      isCapturingActive = true;
+      emittedSentences.clear();
+      speakerBuffers.clear();
+      if (window.InjectedHUD?.setRecordingState) window.InjectedHUD.setRecordingState(true);
+    },
+    stopCapturing: () => {
+      isCapturingActive = false;
+      speakerBuffers.clear();
+      if (window.InjectedHUD?.setRecordingState) window.InjectedHUD.setRecordingState(false);
+    },
+    isCapturing: () => isCapturingActive
+  };
 })();

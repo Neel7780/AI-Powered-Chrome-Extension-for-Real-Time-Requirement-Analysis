@@ -50,3 +50,52 @@ def test_meeting_db_lifecycle_and_chat_isolation():
     assert state_a_restored["sessionId"] == mid_a
     assert len(state_a_restored["transcript"]) == 1
     assert state_a_restored["transcript"][0]["text"] == "The candidate search should be fast and solid."
+
+
+def test_meeting_end_and_persist_to_sqlite_db():
+    # 1. Start a dedicated meeting session
+    res_start = client.post("/api/meetings/new", json={"title": "Q3 Architecture Review", "domain": "HR Tech"})
+    assert res_start.status_code == 200
+    mid = res_start.json()["data"]["sessionId"]
+
+    # 2. Transcribe speech
+    res_utt = client.post("/api/session/utterance", json={
+        "text": "The candidate scoring pipeline must be ultra responsive and extremely reliable.",
+        "speaker": "Principal Architect"
+    })
+    assert res_utt.status_code == 200
+    state = res_utt.json()["data"]
+    assert len(state["transcript"]) == 1
+    assert len(state["clarifications"]) > 0
+
+    # Answer clarification
+    clar_id = state["clarifications"][0]["id"]
+    res_ans = client.post("/api/session/clarify/answer", json={
+        "clarificationId": clar_id,
+        "selectedResponse": "Candidate pipeline execution must complete in under 500ms at 99.9% uptime."
+    })
+    assert res_ans.status_code == 200
+
+    # 3. Explicitly End the meeting session to store everything in SQLite DB
+    res_end = client.post("/api/session/end")
+    assert res_end.status_code == 200
+    end_data = res_end.json()
+    assert end_data["success"] is True
+    assert end_data["data"]["isFinalized"] is True
+    assert end_data["data"]["isActive"] is False
+    assert end_data["data"]["isRecording"] is False
+
+    # 4. Verify directly in SQLite database via DatabaseManager
+    full_db_record = db_manager.get_meeting_full(mid)
+    assert full_db_record is not None
+    assert full_db_record["id"] == mid
+    assert full_db_record["isFinalized"] is True
+    assert full_db_record["isActive"] is False
+    assert len(full_db_record["transcript"]) == 1
+    assert full_db_record["transcript"][0]["text"] == "The candidate scoring pipeline must be ultra responsive and extremely reliable."
+    assert len(full_db_record["clarifications"]) >= 1
+    answered = [c for c in full_db_record["clarifications"] if c.get("selectedResponse")]
+    assert len(answered) >= 1
+    # Check that requirements cache was persisted to SQLite
+    assert len(full_db_record["refined"]["frs"]) > 0 or len(full_db_record["refined"]["nfrs"]) > 0
+

@@ -34,11 +34,15 @@
           <select id="db-meeting-select" class="scenario-select" title="Saved meetings in SQLite database">
             <option value="">(Loading SQLite Meetings...)</option>
           </select>
-          <button id="btn-web-new-meeting" class="btn-new-meeting-web" title="Start a fresh meeting in SQLite DB">
-            ➕ New Meeting
+          <button id="btn-web-start-transcribe" class="btn-web-start-rec" title="Start live detection of meeting speech">
+            ▶ Start Transcribing
+          </button>
+          <button id="btn-web-end-transcribe" class="btn-web-end-rec" style="display: none;" title="End meeting and store all data in SQLite DB">
+            ⏹ End Meeting &amp; Save
           </button>
         </div>
       </div>
+
 
       <div class="nav-right">
         <!-- AI Engine Indicator -->

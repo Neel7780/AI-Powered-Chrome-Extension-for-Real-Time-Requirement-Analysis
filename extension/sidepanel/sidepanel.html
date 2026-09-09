@@ -21,12 +21,36 @@
         </div>
       </div>
       <div class="header-right">
-        <button class="btn-icon primary" id="btn-start-new-meeting" title="Start a brand new meeting transcribing session">➕ New</button>
         <button class="btn-icon" id="btn-load-pdf-sample" title="Load Assignment PDF Conversation">📄 Sample</button>
         <button class="btn-icon" id="btn-finalize" title="Finalize meeting and generate requirements">✓ Analyze</button>
         <button class="btn-icon danger" id="btn-clear-all" title="Clear All Data">🗑</button>
       </div>
     </header>
+
+    <!-- Live Transcribing Control Bar -->
+    <div class="transcribe-control-bar" id="transcribe-control-bar">
+      <div class="transcribe-status">
+        <span class="status-indicator-dot paused" id="transcribe-dot"></span>
+        <div class="transcribe-status-info">
+          <span class="status-title" id="transcribe-status-title">Detection Paused</span>
+          <span class="status-subtitle" id="transcribe-status-sub">Click "Start Transcribing" to detect speech</span>
+        </div>
+      </div>
+      <div class="transcribe-actions">
+        <button class="btn-transcribe-start" id="btn-transcribe-start" title="Start live detection of meeting transcripts in Google Meet">
+          <span class="btn-play-icon">▶</span> Start Transcribing
+        </button>
+        <button class="btn-transcribe-end" id="btn-transcribe-end" style="display: none;" title="End meeting and store all transcripts, clarifications & requirements in SQLite Database">
+          <span class="btn-stop-icon">⏹</span> End Meeting &amp; Save
+        </button>
+      </div>
+    </div>
+
+    <!-- Meeting Save Confirmation Banner -->
+    <div class="meeting-save-banner" id="meeting-save-banner" style="display: none;">
+      <span class="save-banner-icon">✓</span>
+      <span class="save-banner-text" id="meeting-save-banner-text">Meeting ended and stored in SQLite Database!</span>
+    </div>
 
     <!-- Meeting Session Bar -->
     <div class="session-bar" id="session-bar">

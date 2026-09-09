@@ -257,6 +257,7 @@ class DatabaseManager:
     def finalize_meeting(self, meeting_id: str) -> None:
         now = datetime.now().isoformat()
         with self._get_connection() as conn:
-            conn.execute("UPDATE meetings SET is_finalized = 1, updated_at = ? WHERE id = ?", (now, meeting_id))
+            conn.execute("UPDATE meetings SET is_finalized = 1, is_active = 0, updated_at = ? WHERE id = ?", (now, meeting_id))
 
 db_manager = DatabaseManager()
+
