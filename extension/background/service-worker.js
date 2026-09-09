@@ -150,6 +150,16 @@ function handleNewUtterance(utterance) {
       speaker: utterance.speaker || 'Participant',
       timestamp: utterance.timestamp
     })
+  }).then(res => res.json()).then(json => {
+    if (json.success && json.data) {
+      meetingState.transcript = json.data.transcript || meetingState.transcript;
+      meetingState.clarifications = json.data.clarifications || meetingState.clarifications;
+      meetingState.qualityScores = json.data.evaluation || meetingState.qualityScores;
+      broadcastToTabs({
+        type: 'SESSION_STATE_SYNC',
+        payload: json.data
+      });
+    }
   }).catch(() => {});
 
   broadcastToTabs({
@@ -181,6 +191,16 @@ function saveClarification(clarification) {
       clarificationId: clarification.id || '',
       selectedResponse: clarification.selectedResponse || ''
     })
+  }).then(res => res.json()).then(json => {
+    if (json.success && json.data) {
+      meetingState.transcript = json.data.transcript || meetingState.transcript;
+      meetingState.clarifications = json.data.clarifications || meetingState.clarifications;
+      meetingState.qualityScores = json.data.evaluation || meetingState.qualityScores;
+      broadcastToTabs({
+        type: 'SESSION_STATE_SYNC',
+        payload: json.data
+      });
+    }
   }).catch(() => {});
 
   broadcastToTabs({
@@ -193,6 +213,7 @@ function saveClarification(clarification) {
 }
 
 function broadcastToTabs(message) {
+  // 1. Broadcast to all content script tabs (Google Meet, Zoom, Webapp)
   chrome.tabs?.query({}, (tabs) => {
     if (!tabs) return;
     tabs.forEach(tab => {
@@ -201,4 +222,7 @@ function broadcastToTabs(message) {
       }
     });
   });
+
+  // 2. CRUCIAL: Also broadcast directly to extension views (Side Panel, Popup)
+  chrome.runtime?.sendMessage(message).catch(() => {});
 }

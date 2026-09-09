@@ -108,14 +108,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize Real-Time Session Synchronization (WebSocket + Polling fallback)
   initSessionSync();
 
-  // Listen for local messages from Chrome background service worker
+  // Listen for local messages from Chrome background service worker and content scripts
   if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener((message) => {
-      if (message.type === 'UTTERANCE_ADDED') {
-        handleLocalUtterance(message.payload.utterance);
+      if (message.type === 'NEW_UTTERANCE') {
+        const u = message.payload;
+        if (u) handleLocalUtterance(u);
+      } else if (message.type === 'UTTERANCE_ADDED') {
+        const u = message.payload?.utterance || message.payload;
+        if (u) handleLocalUtterance(u);
+        if (message.payload?.allClarifications) {
+          activeClarifications = message.payload.allClarifications;
+          renderClarifications();
+        }
+      } else if (message.type === 'SESSION_STATE_SYNC') {
+        applySynchronizedState(message.payload || message.data);
       } else if (message.type === 'CLARIFICATION_UPDATED') {
-        activeClarifications = message.payload.allClarifications;
+        activeClarifications = message.payload?.allClarifications || message.payload || [];
         updateRequirementsAndQuality();
+        renderClarifications();
       } else if (message.type === 'MEETING_DATA_RESET') {
         activeTranscript = [];
         activeClarifications = [];
@@ -306,6 +317,7 @@ function highlightLiveClarification() {
 }
 
 function handleLocalUtterance(u) {
+  if (!u || !u.text) return;
   const last = activeTranscript[activeTranscript.length - 1];
   if (last && last.text === u.text && last.speaker === u.speaker) return;
 
@@ -317,10 +329,13 @@ function handleLocalUtterance(u) {
         ...u.candidateQuestion,
         selectedResponse: null
       });
+      highlightLiveClarification();
     }
   }
 
+  updateMeetingMeta({ transcript: activeTranscript, clarifications: activeClarifications });
   renderAll();
+  updateRequirementsAndQuality();
 }
 
 async function loadSamplePDFMeeting() {
@@ -419,9 +434,25 @@ function renderTranscript() {
             ${u.detectedFlags.map(f => `<span class="flag-badge">${escapeHtml(f.category)}: ${escapeHtml(f.severity || 'Medium')}</span>`).join('')}
           </div>
         ` : ''}
+        ${u.candidateQuestion ? `
+          <div class="utterance-q-prompt" style="margin-top: 8px; padding: 8px 10px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span style="font-size: 11px; color: #fcd34d; font-weight: 600;">💡 ${escapeHtml(u.candidateQuestion.question)}</span>
+            <button class="btn-jump-tab" data-tab="tab-clarifications" style="background: #f59e0b; color: #000; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">Clarify</button>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
+
+  feed.querySelectorAll('.btn-jump-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.querySelector(`.tab-btn[data-tab="${tabId}"]`)?.classList.add('active');
+      document.getElementById(tabId)?.classList.add('active');
+    });
+  });
 
   feed.scrollTop = feed.scrollHeight;
 }
