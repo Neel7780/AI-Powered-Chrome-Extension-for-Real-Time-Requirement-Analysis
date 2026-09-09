@@ -126,6 +126,24 @@ body {
   color: white;
 }
 
+.btn-new-meeting-web {
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.btn-new-meeting-web:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+}
+
 .nav-right {
   display: flex;
   align-items: center;

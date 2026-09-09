@@ -23,9 +23,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const { type, payload } = message;
 
   switch (type) {
+    case 'START_NEW_MEETING':
+      meetingState.transcript = [];
+      meetingState.clarifications = [];
+      meetingState.ambiguousCount = 0;
+      meetingState.qualityScores = null;
+      meetingState.isMonitoring = true;
+      meetingState.activePlatform = payload?.platform || 'meeting';
+      broadcastToTabs({ type: 'MEETING_DATA_RESET', payload: meetingState });
+      fetch(`${SERVER_URL}/api/meetings/new`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: payload?.title || `Live Meeting ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          domain: payload?.domain || 'HR Tech'
+        })
+      }).then(r => r.json()).then(res => {
+        if (res.data) {
+          broadcastToTabs({ type: 'SESSION_STATE_SYNC', payload: res.data });
+        }
+      }).catch(() => {});
+      sendResponse({ success: true, state: meetingState });
+      break;
+
     case 'START_MONITORING':
       meetingState.isMonitoring = true;
       meetingState.activePlatform = payload?.platform || 'meeting';
+      if (payload?.cleanSlate) {
+        meetingState.transcript = [];
+        meetingState.clarifications = [];
+        meetingState.ambiguousCount = 0;
+        meetingState.qualityScores = null;
+        broadcastToTabs({ type: 'MEETING_DATA_RESET', payload: meetingState });
+      }
       broadcastToTabs({ type: 'MONITORING_STATUS_CHANGED', payload: meetingState });
       fetch(`${SERVER_URL}/api/session/start`, {
         method: 'POST',

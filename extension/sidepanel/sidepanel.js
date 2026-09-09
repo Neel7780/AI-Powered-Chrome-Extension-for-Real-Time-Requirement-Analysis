@@ -69,6 +69,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-load-pdf-sample')?.addEventListener('click', loadSamplePDFMeeting);
   document.getElementById('btn-finalize')?.addEventListener('click', finalizeMeeting);
 
+  // Start Brand New Meeting Session in SQLite DB
+  document.getElementById('btn-start-new-meeting')?.addEventListener('click', startNewMeetingSession);
+  document.getElementById('select-meeting-history')?.addEventListener('change', (e) => switchMeetingSession(e.target.value));
+
   // Clear all data
   document.getElementById('btn-clear-all')?.addEventListener('click', async () => {
     try {
@@ -82,6 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     generatedRequirements = null;
     qualityEvaluation = null;
     renderAll();
+    loadMeetingsDropdown();
   });
 
   // Requirement Filter Chips
@@ -131,6 +136,7 @@ function initSessionSync() {
     sessionSocket.onopen = () => {
       console.log('🔗 [Sidepanel] WebSocket session connected.');
       backendReachable = true;
+      loadMeetingsDropdown();
     };
 
     sessionSocket.onmessage = (event) => {
@@ -180,20 +186,123 @@ async function fetchSessionState() {
 
 function applySynchronizedState(state) {
   if (!state) return;
+  const prevClarifyCount = activeClarifications.length;
   activeTranscript = state.transcript || [];
   activeClarifications = state.clarifications || [];
   
-  if (state.baseline && state.refined) {
-    generatedRequirements = {
-      baseline: state.baseline,
-      refined: state.refined
-    };
-  }
-  if (state.evaluation && Object.keys(state.evaluation).length > 0) {
-    qualityEvaluation = state.evaluation;
+  if (activeTranscript.length === 0) {
+    generatedRequirements = null;
+    qualityEvaluation = null;
+  } else {
+    if (state.baseline && state.refined) {
+      generatedRequirements = {
+        baseline: state.baseline,
+        refined: state.refined
+      };
+    }
+    if (state.evaluation && Object.keys(state.evaluation).length > 0) {
+      qualityEvaluation = state.evaluation;
+    }
   }
   
+  // Highlight badge if a new ambiguity question was generated live
+  if (activeClarifications.length > prevClarifyCount) {
+    highlightLiveClarification();
+  }
+
+  updateMeetingMeta(state);
   renderAll();
+}
+
+async function loadMeetingsDropdown(selectedId = null) {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/meetings`);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (!json.success || !json.data) return;
+
+    const select = document.getElementById('select-meeting-history');
+    if (!select) return;
+
+    select.innerHTML = '';
+    const activeId = json.activeMeetingId || selectedId;
+
+    json.data.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      const status = m.is_active ? '● ' : '';
+      opt.textContent = `${status}${m.title} (${m.transcript_count} lines)`;
+      if (m.id === activeId) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn('Failed to load meetings list:', e);
+  }
+}
+
+async function startNewMeetingSession() {
+  const defaultTitle = `Live Meeting ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  const title = prompt('Enter title for new meeting session:', defaultTitle);
+  if (!title) return;
+
+  activeTranscript = [];
+  activeClarifications = [];
+  generatedRequirements = null;
+  qualityEvaluation = null;
+  renderAll();
+
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({
+      type: 'START_NEW_MEETING',
+      payload: { title }
+    });
+  }
+
+  try {
+    const res = await fetch(`${SERVER_URL}/api/meetings/new`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, domain: 'HR Tech' })
+    });
+    const json = await res.json();
+    if (json.success && json.data) {
+      applySynchronizedState(json.data);
+      await loadMeetingsDropdown(json.data.sessionId);
+    }
+  } catch (e) {
+    console.error('Error starting new meeting session:', e);
+  }
+}
+
+async function switchMeetingSession(meetingId) {
+  if (!meetingId) return;
+  try {
+    const res = await fetch(`${SERVER_URL}/api/meetings/${meetingId}/switch`, { method: 'POST' });
+    const json = await res.json();
+    if (json.success && json.data) {
+      applySynchronizedState(json.data);
+      await loadMeetingsDropdown(meetingId);
+    }
+  } catch (e) {
+    console.error('Error switching meeting session:', e);
+  }
+}
+
+function updateMeetingMeta(state) {
+  const meta = document.getElementById('session-meta-tag');
+  if (!meta) return;
+  const tCount = state.transcript ? state.transcript.length : 0;
+  const cCount = state.clarifications ? state.clarifications.length : 0;
+  const resCount = state.clarifications ? state.clarifications.filter(c => c.selectedResponse).length : 0;
+  meta.textContent = `${tCount} lines | ${resCount}/${cCount} clarified`;
+}
+
+function highlightLiveClarification() {
+  const badge = document.getElementById('badge-clarify-count');
+  if (badge) {
+    badge.classList.add('pulse-alert');
+    setTimeout(() => badge.classList.remove('pulse-alert'), 3500);
+  }
 }
 
 function handleLocalUtterance(u) {

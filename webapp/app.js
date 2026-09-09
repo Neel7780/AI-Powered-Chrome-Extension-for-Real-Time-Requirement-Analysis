@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSessionSync();
   await loadScenarioData();
   setupEventListeners();
+  loadDatabaseMeetings();
 });
 
 // 1. WebSocket Real-Time Synchronization with Extension & Backend
@@ -183,6 +184,9 @@ function setupEventListeners() {
     selectScenario(e.target.value);
   });
 
+  document.getElementById('btn-web-new-meeting')?.addEventListener('click', createNewMeetingInDB);
+  document.getElementById('db-meeting-select')?.addEventListener('change', (e) => switchMeetingFromDB(e.target.value));
+
   document.getElementById('btn-play-pause')?.addEventListener('click', togglePlaySimulation);
   document.getElementById('btn-step-next')?.addEventListener('click', stepSimulation);
   document.getElementById('btn-instant-load')?.addEventListener('click', loadEntireMeetingInstantly);
@@ -243,6 +247,71 @@ function setupEventListeners() {
   document.getElementById('btn-export-docx')?.addEventListener('click', () => exportSpecification('docx'));
   document.getElementById('btn-export-md')?.addEventListener('click', () => exportSpecification('txt'));
   document.getElementById('btn-export-json')?.addEventListener('click', () => exportSpecification('json'));
+}
+
+// Database Meeting Management Functions
+async function loadDatabaseMeetings(selectedId = null) {
+  try {
+    const res = await fetch('/api/meetings');
+    const json = await res.json();
+    if (!json.success || !json.data) return;
+
+    const select = document.getElementById('db-meeting-select');
+    if (!select) return;
+
+    select.innerHTML = '';
+    const activeMid = json.activeMeetingId || selectedId;
+
+    json.data.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      const status = m.is_active ? '● ' : '';
+      opt.textContent = `${status}${m.title} (${m.transcript_count} lines, ${m.resolved_count} clarified)`;
+      if (m.id === activeMid) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn('Failed to load database meetings:', e);
+  }
+}
+
+async function createNewMeetingInDB() {
+  const defaultTitle = `Live Meeting ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  const title = prompt('Enter a title for this new meeting session:', defaultTitle);
+  if (!title) return;
+
+  try {
+    const res = await fetch('/api/meetings/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, domain: 'HR Tech' })
+    });
+    const json = await res.json();
+    if (json.success && json.data) {
+      activeTranscript = [];
+      activeClarifications = [];
+      currentRequirements = null;
+      currentEvaluation = null;
+      applyIncomingSessionState(json.data);
+      await loadDatabaseMeetings(json.data.sessionId);
+    }
+  } catch (e) {
+    console.error('Error creating new meeting:', e);
+  }
+}
+
+async function switchMeetingFromDB(meetingId) {
+  if (!meetingId) return;
+  try {
+    const res = await fetch(`/api/meetings/${meetingId}/switch`, { method: 'POST' });
+    const json = await res.json();
+    if (json.success && json.data) {
+      applyIncomingSessionState(json.data);
+      await loadDatabaseMeetings(meetingId);
+    }
+  } catch (e) {
+    console.error('Error switching meeting:', e);
+  }
 }
 
 // Simulation Controls

@@ -88,6 +88,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.close();
   });
 
+  document.getElementById('btn-new-meeting')?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'START_NEW_MEETING' }, () => {
+      refreshState();
+    });
+  });
+
   btnLoadSample.addEventListener('click', () => {
     const sample = window.EXT_SAMPLE_TRANSCRIPTS?.[0];
     if (!sample) return;

@@ -13,6 +13,7 @@ from .ambiguity_engine import ambiguity_engine
 from .requirement_engine import requirement_engine
 from .quality_evaluator import quality_evaluator
 from .llm_service import llm_service
+from .database import db_manager
 
 logger = logging.getLogger("AIRequirementAnalyst.SessionManager")
 
@@ -20,31 +21,57 @@ class SessionManager:
     """
     Manages shared, real-time meeting sessions between the Web Dashboard,
     Chrome Extension Sidepanel, Popup, and in-meeting HUD.
-    Synchronizes transcript feeds, AI clarification questions, stakeholder responses,
-    requirements boards, and quality metrics in real-time via WebSockets & REST.
+    Persists all sessions, transcripts, and clarification decisions into SQLite database.
     """
     def __init__(self) -> None:
-        self.session_id: str = "live-meeting-session"
-        self.session_title: str = "Live Requirement Elicitation Session"
-        self.domain: str = "HR Tech"
-        self.transcript: List[Dict[str, Any]] = []
-        self.clarifications: List[Dict[str, Any]] = []
-        self.baseline: Dict[str, Any] = {"frs": [], "nfrs": []}
-        self.refined: Dict[str, Any] = {"frs": [], "nfrs": []}
-        self.evaluation: Dict[str, Any] = {}
-        self.is_active: bool = False
-        self.is_finalized: bool = False
-        self.created_at: str = datetime.now().isoformat()
-        self.updated_at: str = datetime.now().isoformat()
-        
-        # Active WebSocket connections (Webapp, Sidepanel, Popup, Meeting HUD)
         self.active_connections: Set[WebSocket] = set()
+        
+        # Check if an active meeting exists in SQLite, or create one
+        active_id = db_manager.get_active_meeting_id()
+        if active_id:
+            full_meet = db_manager.get_meeting_full(active_id)
+            if full_meet:
+                self._load_from_dict(full_meet)
+            else:
+                self._init_fresh_session()
+        else:
+            self._init_fresh_session()
+
+    def _init_fresh_session(self, title: str = "Live Meeting Session", domain: str = "HR Tech") -> None:
+        mid = db_manager.create_meeting(title, domain)
+        self.session_id = mid
+        self.session_title = title
+        self.domain = domain
+        self.transcript = []
+        self.clarifications = []
+        self.baseline = {"frs": [], "nfrs": []}
+        self.refined = {"frs": [], "nfrs": []}
+        self.evaluation = {}
+        self.is_active = True
+        self.is_finalized = False
+        self.created_at = datetime.now().isoformat()
+        self.updated_at = datetime.now().isoformat()
+
+    def _load_from_dict(self, d: Dict[str, Any]) -> None:
+        self.session_id = d["id"]
+        self.session_title = d["title"]
+        self.domain = d["domain"]
+        self.transcript = d["transcript"]
+        self.clarifications = d["clarifications"]
+        self.baseline = d.get("baseline", {"frs": [], "nfrs": []})
+        self.refined = d.get("refined", {"frs": [], "nfrs": []})
+        self.evaluation = d.get("evaluation", {})
+        self.is_active = d.get("isActive", True)
+        self.is_finalized = d.get("isFinalized", False)
+        self.created_at = d.get("createdAt", datetime.now().isoformat())
+        self.updated_at = d.get("updatedAt", datetime.now().isoformat())
+        if self.transcript and (not self.baseline.get("frs")):
+            self._recalculate()
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections.add(websocket)
         logger.info(f"WebSocket client connected. Total clients: {len(self.active_connections)}")
-        # Send initial full state immediately upon connection
         await websocket.send_text(json.dumps({
             "type": "SESSION_STATE_SYNC",
             "data": self.get_state()
@@ -56,9 +83,7 @@ class SessionManager:
             logger.info(f"WebSocket client disconnected. Total clients: {len(self.active_connections)}")
 
     async def broadcast(self, message_type: str, data: Any) -> None:
-        """
-        Broadcasts real-time events to all connected clients.
-        """
+        """Broadcasts real-time events to all connected clients."""
         if not self.active_connections:
             return
 
@@ -75,57 +100,56 @@ class SessionManager:
             self.disconnect(dead)
 
     def get_state(self) -> Dict[str, Any]:
-        """
-        Returns full synchronized state.
-        """
+        """Returns full synchronized state for the active meeting."""
         return {
             "sessionId": self.session_id,
             "sessionTitle": self.session_title,
             "domain": self.domain,
             "isActive": self.is_active,
+            "isFinalized": self.is_finalized,
             "transcript": self.transcript,
             "clarifications": self.clarifications,
-            "isFinalized": self.is_finalized,
-            "baseline": self.baseline if self.is_finalized else {"frs": [], "nfrs": []},
-            "refined": self.refined if self.is_finalized else {"frs": [], "nfrs": []},
-            "evaluation": self.evaluation if self.is_finalized else {},
+            "baseline": self.baseline,
+            "refined": self.refined,
+            "evaluation": self.evaluation,
             "stats": {
                 "transcriptCount": len(self.transcript),
                 "clarificationCount": len(self.clarifications),
                 "resolvedCount": sum(1 for c in self.clarifications if c.get("selectedResponse")),
                 "ambiguityCount": sum(len(u.get("detectedFlags", [])) for u in self.transcript),
-                "overallQualityIndex": self.evaluation.get("refined", {}).get("overallQualityIndex", 0) if self.is_finalized else 0
+                "overallQualityIndex": self.evaluation.get("refined", {}).get("overallQualityIndex", 0) if self.transcript else 0
             },
             "createdAt": self.created_at,
             "updatedAt": self.updated_at
         }
 
     def start_session(self, title: str = "Live Meeting", domain: str = "HR Tech") -> Dict[str, Any]:
-        self.session_title = title
-        self.domain = domain
-        self.transcript = []
-        self.clarifications = []
-        self.is_active = True
-        self.is_finalized = False
-        self.created_at = datetime.now().isoformat()
-        self.updated_at = datetime.now().isoformat()
+        """Starts a BRAND NEW isolated meeting session in the database."""
+        self._init_fresh_session(title=title, domain=domain)
         self._recalculate()
         return self.get_state()
 
     def reset_session(self) -> Dict[str, Any]:
+        """Resets the current meeting session to a clean slate."""
+        mid = db_manager.create_meeting(self.session_title or "Live Meeting", self.domain or "HR Tech")
+        self.session_id = mid
         self.transcript = []
         self.clarifications = []
-        self.is_active = False
+        self.baseline = {"frs": [], "nfrs": []}
+        self.refined = {"frs": [], "nfrs": []}
+        self.evaluation = {}
+        self.is_active = True
         self.is_finalized = False
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
         return self.get_state()
 
     def finalize_session(self) -> Dict[str, Any]:
-        """Publishes the requirement and quality results for the completed meeting."""
+        """Finalizes the meeting session and persists status."""
         self.is_active = False
         self.is_finalized = True
         self.updated_at = datetime.now().isoformat()
+        db_manager.finalize_meeting(self.session_id)
         self._recalculate()
         return self.get_state()
 
@@ -146,7 +170,7 @@ class SessionManager:
     def add_utterance(self, text: str, speaker: str = "Speaker", timestamp: Optional[str] = None) -> Dict[str, Any]:
         """
         Adds utterance, detects ambiguities in real time, generates clarification questions,
-        and recalculates the requirement board & quality scores.
+        persists to SQLite, and recalculates the requirements board & quality scores.
         """
         if not text or not text.strip() or self._is_ui_noise(text):
             return self.get_state()
@@ -157,8 +181,19 @@ class SessionManager:
         analysis = ambiguity_engine.analyze_utterance(text)
         flags_data = [f.model_dump() for f in analysis.detectedFlags]
 
+        # 2. Persist Utterance to SQLite
+        row_id = db_manager.add_utterance(
+            self.session_id,
+            speaker,
+            text.strip(),
+            time_str,
+            analysis.isAmbiguous,
+            analysis.ambiguityScore,
+            flags_data
+        )
+
         utterance_obj = {
-            "id": f"u-{len(self.transcript)+1}",
+            "id": f"u-{row_id}",
             "speaker": speaker,
             "text": text.strip(),
             "timestamp": time_str,
@@ -169,14 +204,25 @@ class SessionManager:
         }
         self.transcript.append(utterance_obj)
 
-        # 2. If ambiguous, generate targeted clarification question
+        # 3. If ambiguous, generate targeted clarification question live
         if analysis.isAmbiguous and flags_data:
             q = ambiguity_engine.generate_fallback_question(text, analysis.detectedFlags)
             
             # Check duplicate question suppression
             existing_objs = [ClarificationQuestion(**c) for c in self.clarifications]
             if ambiguity_engine.filter_duplicate_clarifications(existing_objs, q):
-                self.clarifications.append(q.model_dump())
+                q_dict = q.model_dump()
+                self.clarifications.append(q_dict)
+                # Persist Clarification Question to SQLite
+                db_manager.add_clarification(
+                    self.session_id,
+                    q.id,
+                    q.category,
+                    q.question,
+                    text.strip(),
+                    q.suggestedOptions or q.options or [],
+                    "HIGH"
+                )
 
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
@@ -184,13 +230,14 @@ class SessionManager:
 
     def answer_clarification(self, clarification_id: str, selected_response: str) -> Dict[str, Any]:
         """
-        Records a stakeholder decision for a clarification question and updates requirement refinement.
+        Records a stakeholder decision for a clarification question in SQLite and recomputes requirements.
         """
         for c in self.clarifications:
             if c.get("id") == clarification_id:
                 c["selectedResponse"] = selected_response.strip()
                 break
 
+        db_manager.update_clarification_response(self.session_id, clarification_id, selected_response.strip())
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
         return self.get_state()
@@ -201,9 +248,7 @@ class SessionManager:
         clarifications: Optional[List[Dict[str, Any]]] = None,
         domain: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Bulk synchronizes state (e.g. when loading a preset scenario).
-        """
+        """Bulk synchronizes state (e.g. when loading a preset scenario)."""
         if transcript is not None:
             self.transcript = transcript
         if clarifications is not None:
@@ -217,14 +262,37 @@ class SessionManager:
         self._recalculate()
         return self.get_state()
 
+    def list_meetings(self) -> List[Dict[str, Any]]:
+        """Returns list of meetings from SQLite database."""
+        return db_manager.list_meetings()
+
+    def switch_meeting(self, meeting_id: str) -> Dict[str, Any]:
+        """Switches active session to a historical meeting stored in SQLite."""
+        full_meet = db_manager.get_meeting_full(meeting_id)
+        if not full_meet:
+            return self.get_state()
+        db_manager.set_active_meeting(meeting_id)
+        self._load_from_dict(full_meet)
+        return self.get_state()
+
+    def delete_meeting(self, meeting_id: str) -> bool:
+        """Deletes a meeting from SQLite. If active, initializes a fresh one."""
+        deleted = db_manager.delete_meeting(meeting_id)
+        if deleted and meeting_id == self.session_id:
+            self._init_fresh_session()
+            self._recalculate()
+        return deleted
+
     def _recalculate(self) -> None:
         """
         Recomputes Baseline, Refined Requirements, and Quality Evaluations.
+        Persists requirement cache in SQLite.
         """
-        if not self.is_finalized:
+        if not self.transcript:
             self.baseline = {"frs": [], "nfrs": []}
             self.refined = {"frs": [], "nfrs": []}
             self.evaluation = {}
+            db_manager.save_requirements_cache(self.session_id, self.baseline, self.refined, self.evaluation)
             return
 
         base_set, ref_set = requirement_engine.generate_requirements(
@@ -244,5 +312,8 @@ class SessionManager:
             "refined": ref_eval.model_dump(),
             "comparison": comparison.model_dump()
         }
+
+        # Cache in SQLite database
+        db_manager.save_requirements_cache(self.session_id, self.baseline, self.refined, self.evaluation)
 
 session_manager = SessionManager()

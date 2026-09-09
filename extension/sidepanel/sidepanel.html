@@ -21,11 +21,23 @@
         </div>
       </div>
       <div class="header-right">
+        <button class="btn-icon primary" id="btn-start-new-meeting" title="Start a brand new meeting transcribing session">➕ New</button>
         <button class="btn-icon" id="btn-load-pdf-sample" title="Load Assignment PDF Conversation">📄 Sample</button>
         <button class="btn-icon" id="btn-finalize" title="Finalize meeting and generate requirements">✓ Analyze</button>
         <button class="btn-icon danger" id="btn-clear-all" title="Clear All Data">🗑</button>
       </div>
     </header>
+
+    <!-- Meeting Session Bar -->
+    <div class="session-bar" id="session-bar">
+      <div class="session-left">
+        <span class="session-icon">📁</span>
+        <select id="select-meeting-history" class="session-select" title="Saved meetings in SQLite database">
+          <option value="">Active Meeting</option>
+        </select>
+      </div>
+      <span class="session-meta" id="session-meta-tag">0 lines</span>
+    </div>
 
     <!-- Navigation Tabs -->
     <nav class="nav-tabs">

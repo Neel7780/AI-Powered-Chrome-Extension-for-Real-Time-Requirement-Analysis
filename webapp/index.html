@@ -19,13 +19,24 @@
       <div class="nav-center">
         <!-- Preset Scenario Selector -->
         <div class="scenario-selector-wrap">
-          <label for="scenario-select">Meeting Scenario:</label>
+          <label for="scenario-select">Preset:</label>
           <select id="scenario-select" class="scenario-select">
             <option value="resume-analyzer-assignment">📄 Resume Analyzer (Assignment PDF Conversation)</option>
             <option value="fintech-fraud-meeting">💳 Fintech Real-Time Fraud Prevention</option>
             <option value="healthcare-ehr-meeting">🏥 Healthcare Clinical Decision Support</option>
             <option value="custom">✏️ Custom / Paste Meeting Transcript</option>
           </select>
+        </div>
+
+        <!-- Database Saved Meetings & New Meeting -->
+        <div class="scenario-selector-wrap" style="margin-left: 10px;">
+          <label for="db-meeting-select">📁 DB Meetings:</label>
+          <select id="db-meeting-select" class="scenario-select" title="Saved meetings in SQLite database">
+            <option value="">(Loading SQLite Meetings...)</option>
+          </select>
+          <button id="btn-web-new-meeting" class="btn-new-meeting-web" title="Start a fresh meeting in SQLite DB">
+            ➕ New Meeting
+          </button>
         </div>
       </div>
 

@@ -53,12 +53,60 @@ async def start_session_endpoint(payload: StartSessionPayload):
 @router.post("/api/session/reset")
 async def reset_session_endpoint():
     """
-    Clears the session state and notifies all clients.
+    Clears the active session state and notifies all clients.
     """
     state = session_manager.reset_session()
     await session_manager.broadcast("SESSION_RESET", state)
     return {
         "success": True,
+        "data": state
+    }
+
+@router.get("/api/meetings")
+def list_meetings_endpoint():
+    """
+    Lists all saved meetings from SQLite database.
+    """
+    return {
+        "success": True,
+        "data": session_manager.list_meetings(),
+        "activeMeetingId": session_manager.session_id
+    }
+
+@router.post("/api/meetings/new")
+async def new_meeting_endpoint(payload: StartSessionPayload):
+    """
+    Creates and starts a brand new meeting session with a clean isolated transcript.
+    """
+    state = session_manager.start_session(payload.title or "Live Meeting", payload.domain or "HR Tech")
+    await session_manager.broadcast("SESSION_STARTED", state)
+    return {
+        "success": True,
+        "data": state
+    }
+
+@router.post("/api/meetings/{meeting_id}/switch")
+async def switch_meeting_endpoint(meeting_id: str):
+    """
+    Switches active session to a historical meeting stored in SQLite.
+    """
+    state = session_manager.switch_meeting(meeting_id)
+    await session_manager.broadcast("SESSION_STATE_SYNC", state)
+    return {
+        "success": True,
+        "data": state
+    }
+
+@router.delete("/api/meetings/{meeting_id}")
+async def delete_meeting_endpoint(meeting_id: str):
+    """
+    Deletes a meeting from SQLite database.
+    """
+    deleted = session_manager.delete_meeting(meeting_id)
+    state = session_manager.get_state()
+    await session_manager.broadcast("SESSION_STATE_SYNC", state)
+    return {
+        "success": deleted,
         "data": state
     }
 
