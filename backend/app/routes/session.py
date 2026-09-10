@@ -20,8 +20,11 @@ class AddUtterancePayload(BaseModel):
     timestamp: Optional[str] = None
 
 class AnswerClarificationPayload(BaseModel):
-    clarificationId: str
+    clarificationId: Optional[str] = None
     selectedResponse: str
+    question: Optional[str] = None
+    triggeredBy: Optional[str] = None
+    category: Optional[str] = None
 
 class BulkSyncPayload(BaseModel):
     transcript: Optional[List[Dict[str, Any]]] = None
@@ -154,7 +157,13 @@ async def answer_clarification_endpoint(payload: AnswerClarificationPayload):
     """
     Records a stakeholder answer and updates requirements & quality metrics on all clients.
     """
-    state = session_manager.answer_clarification(payload.clarificationId, payload.selectedResponse)
+    state = session_manager.answer_clarification(
+        clarification_id=payload.clarificationId or "",
+        selected_response=payload.selectedResponse,
+        question=payload.question,
+        triggered_by=payload.triggeredBy,
+        category=payload.category
+    )
     await session_manager.broadcast("CLARIFICATION_ANSWERED", state)
     return {
         "success": True,
@@ -197,8 +206,11 @@ async def websocket_session_endpoint(websocket: WebSocket):
 
                 elif msg_type == "ANSWER_CLARIFICATION":
                     state = session_manager.answer_clarification(
-                        data.get("clarificationId", ""),
-                        data.get("selectedResponse", "")
+                        clarification_id=data.get("clarificationId", ""),
+                        selected_response=data.get("selectedResponse", ""),
+                        question=data.get("question"),
+                        triggered_by=data.get("triggeredBy"),
+                        category=data.get("category")
                     )
                     await session_manager.broadcast("CLARIFICATION_ANSWERED", state)
 

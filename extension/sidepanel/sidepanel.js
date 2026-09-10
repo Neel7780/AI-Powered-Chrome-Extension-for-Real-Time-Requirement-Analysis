@@ -224,7 +224,20 @@ function applySynchronizedState(state) {
   if (!state) return;
   const prevClarifyCount = activeClarifications.length;
   activeTranscript = state.transcript || [];
-  activeClarifications = state.clarifications || [];
+
+  // Merge clarifications carefully so local answers aren't temporarily overwritten if server state is in-flight
+  const serverClarifications = state.clarifications || [];
+  activeClarifications = serverClarifications.map(sc => {
+    const local = activeClarifications.find(lc => 
+      lc.id === sc.id || 
+      (lc.question && sc.question && lc.question.trim().toLowerCase() === sc.question.trim().toLowerCase()) ||
+      (lc.category && sc.category && lc.category.trim().toLowerCase() === sc.category.trim().toLowerCase())
+    );
+    if (local && local.selectedResponse && !sc.selectedResponse) {
+      return { ...sc, selectedResponse: local.selectedResponse };
+    }
+    return sc;
+  });
   
   if (activeTranscript.length === 0) {
     generatedRequirements = null;
@@ -410,17 +423,44 @@ function highlightLiveClarification() {
 function handleLocalUtterance(u) {
   if (!u || !u.text) return;
   const last = activeTranscript[activeTranscript.length - 1];
-  if (last && last.text === u.text && last.speaker === u.speaker) return;
+  
+  if (last && last.speaker === u.speaker) {
+    const lastNorm = last.text.replace(/[.?!,;:]+$/, '').trim().toLowerCase();
+    const currNorm = u.text.replace(/[.?!,;:]+$/, '').trim().toLowerCase();
+    if (currNorm === lastNorm) {
+      return;
+    } else if (currNorm.startsWith(lastNorm)) {
+      last.text = u.text;
+      last.timestamp = u.timestamp;
+      last.isAmbiguous = u.isAmbiguous;
+      last.ambiguityScore = u.ambiguityScore;
+      last.detectedFlags = u.detectedFlags;
+    } else {
+      activeTranscript.push(u);
+    }
+  } else {
+    activeTranscript.push(u);
+  }
 
-  activeTranscript.push(u);
   if (u.candidateQuestion) {
-    const exists = activeClarifications.some(c => c.id === u.candidateQuestion.id || c.triggeredBy === u.text);
+    const q = u.candidateQuestion;
+    const exists = activeClarifications.find(c => 
+      c.id === q.id || 
+      c.category === q.category || 
+      (c.question && q.question && c.question.trim().toLowerCase() === q.question.trim().toLowerCase()) ||
+      (c.triggeredBy && q.triggeredBy && (
+        c.triggeredBy.toLowerCase().includes(q.triggeredBy.toLowerCase()) ||
+        q.triggeredBy.toLowerCase().includes(c.triggeredBy.toLowerCase())
+      ))
+    );
     if (!exists) {
       activeClarifications.push({
-        ...u.candidateQuestion,
+        ...q,
         selectedResponse: null
       });
       highlightLiveClarification();
+    } else if (!exists.selectedResponse) {
+      exists.triggeredBy = q.triggeredBy;
     }
   }
 
@@ -608,12 +648,28 @@ function renderClarifications() {
       renderClarifications();
       updateRequirementsAndQuality();
 
+      const answerPayload = {
+        clarificationId: cid,
+        selectedResponse: chosen,
+        question: target?.question || '',
+        triggeredBy: target?.triggeredBy || '',
+        category: target?.category || ''
+      };
+
+      // Notify background service worker
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: 'SAVE_CLARIFICATION_RESPONSE',
+          payload: { id: cid, ...answerPayload }
+        }).catch(() => {});
+      }
+
       // Sync to shared backend session
       try {
         const res = await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clarificationId: cid, selectedResponse: chosen })
+          body: JSON.stringify(answerPayload)
         });
         const json = await res.json();
         if (json.success && json.data) {
@@ -633,11 +689,27 @@ function renderClarifications() {
       
       updateRequirementsAndQuality();
 
+      const answerPayload = {
+        clarificationId: cid,
+        selectedResponse: customVal,
+        question: target?.question || '',
+        triggeredBy: target?.triggeredBy || '',
+        category: target?.category || ''
+      };
+
+      // Notify background service worker
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: 'SAVE_CLARIFICATION_RESPONSE',
+          payload: { id: cid, ...answerPayload }
+        }).catch(() => {});
+      }
+
       try {
         const res = await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clarificationId: cid, selectedResponse: customVal })
+          body: JSON.stringify(answerPayload)
         });
         const json = await res.json();
         if (json.success && json.data) {

@@ -99,3 +99,103 @@ def test_meeting_end_and_persist_to_sqlite_db():
     # Check that requirements cache was persisted to SQLite
     assert len(full_db_record["refined"]["frs"]) > 0 or len(full_db_record["refined"]["nfrs"]) > 0
 
+
+def test_streaming_speech_continuation_deduplication():
+    """
+    Verifies that progressive streaming caption fragments (e.g. Meet word-by-word streaming)
+    update the existing utterance and do NOT generate repeated duplicate clarification questions.
+    """
+    # 1. Start a new isolated meeting
+    res_new = client.post("/api/meetings/new", json={"title": "Streaming Test", "domain": "HR Tech"})
+    assert res_new.status_code == 200
+    mid = res_new.json()["data"]["sessionId"]
+
+    # 2. First streaming fragment with interim period
+    res_1 = client.post("/api/session/utterance", json={
+        "speaker": "Interviewer",
+        "text": "Mainly skill."
+    })
+    assert res_1.status_code == 200
+    state_1 = res_1.json()["data"]
+    assert len(state_1["transcript"]) == 1
+    assert len(state_1["clarifications"]) == 1
+
+    # 3. Second streaming fragment extending the previous fragment
+    res_2 = client.post("/api/session/utterance", json={
+        "speaker": "Interviewer",
+        "text": "Mainly skills exp."
+    })
+    assert res_2.status_code == 200
+    state_2 = res_2.json()["data"]
+    # Utterance must be merged/updated in place, NOT duplicated into 2 utterances
+    assert len(state_2["transcript"]) == 1
+    assert state_2["transcript"][0]["text"] == "Mainly skills exp."
+    # Clarification question must NOT be duplicated!
+    assert len(state_2["clarifications"]) == 1
+
+    # 4. Third streaming fragment: completed sentence
+    res_3 = client.post("/api/session/utterance", json={
+        "speaker": "Interviewer",
+        "text": "Mainly skills and experience should be weighted heavily."
+    })
+    assert res_3.status_code == 200
+    state_3 = res_3.json()["data"]
+    assert len(state_3["transcript"]) == 1
+    assert state_3["transcript"][0]["text"] == "Mainly skills and experience should be weighted heavily."
+    assert len(state_3["clarifications"]) == 1
+
+    # Verify directly in SQLite DB
+    full_db = db_manager.get_meeting_full(mid)
+    assert len(full_db["transcript"]) == 1
+    assert full_db["transcript"][0]["text"] == "Mainly skills and experience should be weighted heavily."
+    assert len(full_db["clarifications"]) == 1
+
+
+def test_clarification_answer_from_hud_persists_to_db_and_syncs():
+    """
+    Verifies that answering a clarification question from ANY client (In-Meeting HUD,
+    Sidepanel, Web Dashboard) persists the response to SQLite DB and syncs across all views.
+    """
+    # 1. Start meeting
+    res_start = client.post("/api/meetings/new", json={"title": "Clarification Persistence Test", "domain": "HR Tech"})
+    assert res_start.status_code == 200
+    mid = res_start.json()["data"]["sessionId"]
+
+    # 2. Add an ambiguous statement
+    res_utt = client.post("/api/session/utterance", json={
+        "speaker": "Hiring Manager",
+        "text": "The resume parsing must not be slow."
+    })
+    assert res_utt.status_code == 200
+    state = res_utt.json()["data"]
+    assert len(state["clarifications"]) >= 1
+    server_q = state["clarifications"][0]
+
+    # 3. Simulate HUD client answering using a client-generated ID with metadata
+    res_ans = client.post("/api/session/clarify/answer", json={
+        "clarificationId": "q-1725999-perf", # Client-side ID from HUD
+        "question": server_q["question"],
+        "triggeredBy": server_q["triggeredBy"],
+        "category": server_q["category"],
+        "selectedResponse": "Single resume parsing < 1.50s (p95) and batch of 100 resumes < 30.0s"
+    })
+    assert res_ans.status_code == 200
+    state_ans = res_ans.json()["data"]
+
+    # In-memory state must show question resolved!
+    assert state_ans["stats"]["resolvedCount"] == 1
+    answered_q = next(c for c in state_ans["clarifications"] if c["selectedResponse"])
+    assert answered_q["selectedResponse"] == "Single resume parsing < 1.50s (p95) and batch of 100 resumes < 30.0s"
+
+    # 4. Verify directly in SQLite database
+    full_db = db_manager.get_meeting_full(mid)
+    db_answered = [c for c in full_db["clarifications"] if c.get("selectedResponse")]
+    assert len(db_answered) == 1
+    assert db_answered[0]["selectedResponse"] == "Single resume parsing < 1.50s (p95) and batch of 100 resumes < 30.0s"
+
+    # 5. GET /api/session/state confirms answered status
+    res_state = client.get("/api/session/state")
+    assert res_state.status_code == 200
+    assert res_state.json()["data"]["stats"]["resolvedCount"] == 1
+
+

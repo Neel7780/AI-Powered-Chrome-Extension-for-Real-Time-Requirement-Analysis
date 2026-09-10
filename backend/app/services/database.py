@@ -223,15 +223,84 @@ class DatabaseManager:
             )
             conn.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", (now, meeting_id))
 
-    def update_clarification_response(self, meeting_id: str, q_id: str, response: str) -> None:
-        """Records a stakeholder response for a clarification."""
+    def update_utterance(self, u_id: int, text: str, is_ambiguous: bool, ambiguity_score: int, flags: List[Dict[str, Any]]) -> None:
+        """Updates an existing utterance text and analysis (for streaming speech continuation)."""
+        now = datetime.now().isoformat()
+        flags_json = json.dumps(flags)
+        with self._get_connection() as conn:
+            conn.execute(
+                """UPDATE utterances 
+                   SET text = ?, is_ambiguous = ?, ambiguity_score = ?, detected_flags = ?, created_at = ?
+                   WHERE id = ?""",
+                (text.strip(), 1 if is_ambiguous else 0, ambiguity_score, flags_json, now, u_id)
+            )
+
+    def update_clarification_trigger(self, meeting_id: str, q_id: str, triggered_by: str) -> None:
+        """Updates the trigger text for a pending clarification when streaming speech completes."""
         now = datetime.now().isoformat()
         with self._get_connection() as conn:
             conn.execute(
-                "UPDATE clarifications SET selected_response = ? WHERE id = ? AND meeting_id = ?",
-                (response.strip(), q_id, meeting_id)
+                "UPDATE clarifications SET triggered_by = ? WHERE id = ? AND meeting_id = ?",
+                (triggered_by.strip(), q_id, meeting_id)
             )
             conn.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", (now, meeting_id))
+
+    def update_clarification_response(
+        self, 
+        meeting_id: str, 
+        q_id: str, 
+        response: str,
+        question: Optional[str] = None,
+        triggered_by: Optional[str] = None
+    ) -> bool:
+        """Records a stakeholder response for a clarification with multi-strategy fallback."""
+        now = datetime.now().isoformat()
+        resp_clean = response.strip()
+        with self._get_connection() as conn:
+            # 1. Match by exact clarification ID
+            cur = conn.execute(
+                "UPDATE clarifications SET selected_response = ? WHERE id = ? AND meeting_id = ?",
+                (resp_clean, q_id, meeting_id)
+            )
+            if cur.rowcount > 0:
+                conn.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", (now, meeting_id))
+                return True
+
+            # 2. Match by exact or normalized question text
+            if question and question.strip():
+                cur = conn.execute(
+                    "UPDATE clarifications SET selected_response = ? WHERE question = ? AND meeting_id = ?",
+                    (resp_clean, question.strip(), meeting_id)
+                )
+                if cur.rowcount > 0:
+                    conn.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", (now, meeting_id))
+                    return True
+
+            # 3. Match by triggered_by statement
+            if triggered_by and triggered_by.strip():
+                cur = conn.execute(
+                    "UPDATE clarifications SET selected_response = ? WHERE triggered_by = ? AND meeting_id = ?",
+                    (resp_clean, triggered_by.strip(), meeting_id)
+                )
+                if cur.rowcount > 0:
+                    conn.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", (now, meeting_id))
+                    return True
+
+            # 4. Fallback: update earliest unanswered clarification in this meeting
+            cur = conn.execute(
+                """UPDATE clarifications SET selected_response = ? 
+                   WHERE rowid = (
+                       SELECT rowid FROM clarifications 
+                       WHERE meeting_id = ? AND (selected_response IS NULL OR TRIM(selected_response) = '') 
+                       ORDER BY rowid ASC LIMIT 1
+                   )""",
+                (resp_clean, meeting_id)
+            )
+            if cur.rowcount > 0:
+                conn.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", (now, meeting_id))
+                return True
+
+            return False
 
     def save_requirements_cache(self, meeting_id: str, baseline: Dict[str, Any], refined: Dict[str, Any], evaluation: Dict[str, Any]) -> None:
         """Caches computed requirements and quality scorecard in SQLite."""

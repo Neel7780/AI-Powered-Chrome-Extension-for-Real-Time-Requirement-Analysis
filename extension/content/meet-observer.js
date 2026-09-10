@@ -149,28 +149,29 @@
     if (!text || text.length < 3) return;
     if (isMeetingUINoise(text)) return;
 
-    // Deduplicate identical emissions within short time
-    const hash = `${speaker}:${text.toLowerCase()}`;
-    if (emittedHashes.has(hash)) return;
-    emittedHashes.add(hash);
+    const trimmed = text.replace(/\s+/g, ' ').trim();
+    // Deduplicate identical emissions within short time (ignoring trailing punctuation)
+    const normKey = `${speaker}:${trimmed.replace(/[.?!,;:]+$/, '').toLowerCase()}`;
+    if (emittedHashes.has(normKey)) return;
+    emittedHashes.add(normKey);
     if (emittedHashes.size > 200) {
       const first = emittedHashes.values().next().value;
       emittedHashes.delete(first);
     }
 
-    lastEmittedText = text;
+    lastEmittedText = trimmed;
     const timestamp = new Date().toTimeString().slice(3, 8);
-    console.log(`[AI RE] 🎙️ Captured Speech: [${speaker}] "${text}"`);
+    console.log(`[AI RE] 🎙️ Captured Speech: [${speaker}] "${trimmed}"`);
 
     const analysis = window.ClientNLPEngine 
-      ? window.ClientNLPEngine.analyzeUtterance(text, speaker, timestamp)
-      : { text, speaker, timestamp, isAmbiguous: false, ambiguityScore: 0, detectedFlags: [] };
+      ? window.ClientNLPEngine.analyzeUtterance(trimmed, speaker, timestamp)
+      : { text: trimmed, speaker, timestamp, isAmbiguous: false, ambiguityScore: 0, detectedFlags: [] };
 
     chrome.runtime.sendMessage({
       type: 'NEW_UTTERANCE',
       payload: {
         speaker,
-        text,
+        text: trimmed,
         timestamp,
         ...analysis,
         source: 'meet'
@@ -178,33 +179,53 @@
     }).catch(() => {});
 
     if (window.InjectedHUD) {
-      window.InjectedHUD.displayUtterance({ speaker, text, timestamp, ...analysis });
+      window.InjectedHUD.displayUtterance({ speaker, text: trimmed, timestamp, ...analysis });
     }
   }
 
   /**
-   * Stabilizes streaming live captions and emits when speaker finishes or pauses.
+   * Stabilizes streaming live captions with 1200ms debounce.
+   * Merges partial phrases so incomplete sentences never trigger duplicate questions.
    */
   function handleCaptionUpdate(speaker, content) {
     if (!content || isMeetingUINoise(content)) return;
-    if (content === lastEmittedText) return;
 
-    // Check if sentence finished with punctuation
-    const endsWithTerminalPunct = /[.?!]$/.test(content);
-    if (endsWithTerminalPunct && content.length > 12) {
+    const cleanContent = content.replace(/\s+/g, ' ').trim();
+    if (cleanContent.length < 3) return;
+
+    const normContent = cleanContent.replace(/[.?!,;:]+$/, '').toLowerCase();
+    const normLastEmitted = lastEmittedText.replace(/[.?!,;:]+$/, '').toLowerCase();
+
+    // Already emitted exactly this utterance
+    if (normContent === normLastEmitted) return;
+
+    // If speaker changed, flush pending buffer of previous speaker immediately
+    if (pendingBuffer.speaker && pendingBuffer.speaker !== speaker && pendingBuffer.text) {
       if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
-      emitSpeech(speaker, content);
-      return;
+      const flushText = pendingBuffer.text;
+      const flushSpeaker = pendingBuffer.speaker;
+      pendingBuffer = { text: '', speaker, timer: null };
+      emitSpeech(flushSpeaker, flushText);
     }
 
-    // Set responsive 600ms stabilization timer
-    if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
+    // Check if new content is an extension/prefix of the pending buffer
+    const normPending = (pendingBuffer.text || '').replace(/[.?!,;:]+$/, '').toLowerCase();
+    if (pendingBuffer.timer) {
+      clearTimeout(pendingBuffer.timer);
+    }
+
+    // Always keep the longest, most complete version of the spoken sentence
+    const longestText = cleanContent.length >= (pendingBuffer.text || '').length ? cleanContent : pendingBuffer.text;
+
     pendingBuffer = {
-      text: content,
+      text: longestText,
       speaker: speaker,
       timer: setTimeout(() => {
-        emitSpeech(speaker, content);
-      }, 600)
+        const textToEmit = pendingBuffer.text;
+        pendingBuffer.text = '';
+        pendingBuffer.timer = null;
+        emitSpeech(speaker, textToEmit);
+      }, 1200)
     };
   }
 

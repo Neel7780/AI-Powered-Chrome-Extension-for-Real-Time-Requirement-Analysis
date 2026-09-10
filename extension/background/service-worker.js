@@ -145,27 +145,50 @@ function handleNewUtterance(utterance) {
     return;
   }
 
-
   const last = meetingState.transcript[meetingState.transcript.length - 1];
-  if (last && last.text === utterance.text && last.speaker === utterance.speaker) {
-    return;
+  let isContinuation = false;
+
+  if (last && last.speaker === utterance.speaker) {
+    const lastNorm = last.text.replace(/[.?!,;:]+$/, '').trim().toLowerCase();
+    const currNorm = utterance.text.replace(/[.?!,;:]+$/, '').trim().toLowerCase();
+    if (currNorm === lastNorm) {
+      return;
+    } else if (currNorm.startsWith(lastNorm)) {
+      isContinuation = true;
+      last.text = utterance.text;
+      last.timestamp = utterance.timestamp;
+      last.isAmbiguous = utterance.isAmbiguous;
+      last.ambiguityScore = utterance.ambiguityScore;
+      last.detectedFlags = utterance.detectedFlags;
+    } else {
+      meetingState.transcript.push(utterance);
+    }
+  } else {
+    meetingState.transcript.push(utterance);
   }
 
-  meetingState.transcript.push(utterance);
-  if (utterance.isAmbiguous) {
+  if (utterance.isAmbiguous && !isContinuation) {
     meetingState.ambiguousCount++;
   }
 
   if (utterance.candidateQuestion) {
     const question = utterance.candidateQuestion;
-    const alreadyTracked = meetingState.clarifications.some(c =>
-      c.id === question.id || c.triggeredBy === question.triggeredBy
+    const existing = meetingState.clarifications.find(c =>
+      c.id === question.id ||
+      c.category === question.category ||
+      (c.question && question.question && c.question.trim().toLowerCase() === question.question.trim().toLowerCase()) ||
+      (c.triggeredBy && question.triggeredBy && (
+        c.triggeredBy.toLowerCase().includes(question.triggeredBy.toLowerCase()) ||
+        question.triggeredBy.toLowerCase().includes(c.triggeredBy.toLowerCase())
+      ))
     );
-    if (!alreadyTracked) {
+    if (!existing) {
       meetingState.clarifications.push({
         ...question,
         selectedResponse: null
       });
+    } else if (!existing.selectedResponse) {
+      existing.triggeredBy = question.triggeredBy;
     }
   }
 
@@ -201,23 +224,33 @@ function handleNewUtterance(utterance) {
 }
 
 function saveClarification(clarification) {
-  const index = meetingState.clarifications.findIndex(c => c.id === clarification.id || c.triggeredBy === clarification.triggeredBy);
-  if (index !== -1) {
-    meetingState.clarifications[index] = {
-      ...meetingState.clarifications[index],
-      selectedResponse: clarification.selectedResponse
-    };
+  let target = meetingState.clarifications.find(c => 
+    c.id === clarification.id || 
+    (c.question && clarification.question && c.question.trim().toLowerCase() === clarification.question.trim().toLowerCase()) ||
+    (c.category && clarification.category && c.category.trim().toLowerCase() === clarification.category.trim().toLowerCase()) ||
+    (c.triggeredBy && clarification.triggeredBy && (
+      c.triggeredBy.toLowerCase().includes(clarification.triggeredBy.toLowerCase()) ||
+      clarification.triggeredBy.toLowerCase().includes(c.triggeredBy.toLowerCase())
+    ))
+  );
+
+  if (target) {
+    target.selectedResponse = clarification.selectedResponse;
   } else {
     meetingState.clarifications.push(clarification);
+    target = clarification;
   }
 
-  // Sync answer to FastAPI backend
+  // Sync answer to FastAPI backend with full metadata
   fetch(`${SERVER_URL}/api/session/clarify/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      clarificationId: clarification.id || '',
-      selectedResponse: clarification.selectedResponse || ''
+      clarificationId: target.id || clarification.id || '',
+      selectedResponse: clarification.selectedResponse || '',
+      question: target.question || clarification.question || '',
+      triggeredBy: target.triggeredBy || clarification.triggeredBy || '',
+      category: target.category || clarification.category || ''
     })
   }).then(res => res.json()).then(json => {
     if (json.success && json.data) {
@@ -228,13 +261,20 @@ function saveClarification(clarification) {
         type: 'SESSION_STATE_SYNC',
         payload: json.data
       });
+      broadcastToTabs({
+        type: 'CLARIFICATION_UPDATED',
+        payload: {
+          clarification: target,
+          allClarifications: meetingState.clarifications
+        }
+      });
     }
   }).catch(() => {});
 
   broadcastToTabs({
     type: 'CLARIFICATION_UPDATED',
     payload: {
-      clarification,
+      clarification: target,
       allClarifications: meetingState.clarifications
     }
   });

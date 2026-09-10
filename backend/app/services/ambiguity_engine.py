@@ -23,7 +23,7 @@ AMBIGUITY_RULES = [
         ]
     },
     {
-        "patterns": [r"\b(?:not|shouldn't be)\s+slow\b", r"\bquick\b", r"\bfast\b", r"\breal-?time\b"],
+        "patterns": [r"\b(?:not|shouldn't be|must not be)\s+slow\b", r"\bslow\b", r"\bquick\b", r"\bfast\b", r"\breal-?time\b"],
         "category": "Performance",
         "severity": "High",
         "reason": "Vague temporal adjective with unspecified latency, throughput, or concurrency constraints.",
@@ -302,7 +302,7 @@ class AmbiguityEngine:
                     "Define applicable security and compliance baseline with stakeholders"
                 ]
             )
-        elif re.search(r"solid|projects|companies|strength|formula|fresher|weight", lower):
+        elif re.search(r"solid|projects|companies|strength|formula|fresher|weight|mainly|skills?", lower):
             return ClarificationQuestion(
                 id=q_id,
                 category="Ranking Algorithm",
@@ -342,7 +342,7 @@ class AmbiguityEngine:
             return ClarificationQuestion(
                 id=q_id,
                 category="General Clarification",
-                question=f"Could you specify concrete measurable criteria or constraints for: '{text}'?",
+                question="Could you specify concrete measurable criteria or constraints for this requirement?",
                 triggeredBy=text,
                 suggestedOptions=[
                     "Establish quantitative SLO threshold",
@@ -354,18 +354,45 @@ class AmbiguityEngine:
     def filter_duplicate_clarifications(self, existing: List[ClarificationQuestion], new_q: ClarificationQuestion) -> bool:
         """
         Returns True if new_q is unique and should be added; False if it is a duplicate.
+        Robust against streaming caption fragments, interim punctuation, and progressive sentence expansion.
         """
+        new_q_text = re.sub(r'[^\w\s]', '', new_q.question or '').lower().strip()
+        new_trig = re.sub(r'[^\w\s]', '', new_q.triggeredBy or '').lower().strip()
+        new_words = {w for w in new_trig.split() if len(w) >= 3}
+
         for ex in existing:
-            # Same category and triggered by similar statement
-            if ex.category == new_q.category:
-                if ex.triggeredBy and new_q.triggeredBy and (
-                    ex.triggeredBy.lower() in new_q.triggeredBy.lower() or 
-                    new_q.triggeredBy.lower() in ex.triggeredBy.lower()
-                ):
-                    return False
-            # Same question text
-            if ex.question.strip().lower() == new_q.question.strip().lower():
+            # 1. Exact or normalized question text match
+            ex_q_text = re.sub(r'[^\w\s]', '', ex.question or '').lower().strip()
+            if ex_q_text == new_q_text:
                 return False
+
+            # 2. Same category comparison
+            if ex.category and new_q.category and ex.category.strip().lower() == new_q.category.strip().lower():
+                # If already answered in this category, never re-prompt
+                if ex.selectedResponse and ex.selectedResponse.strip():
+                    return False
+
+                # Same category in live session: check trigger text without punctuation
+                ex_trig = re.sub(r'[^\w\s]', '', ex.triggeredBy or '').lower().strip()
+                if ex_trig and new_trig:
+                    if ex_trig in new_trig or new_trig in ex_trig:
+                        return False
+                    ex_words = {w for w in ex_trig.split() if len(w) >= 3}
+                    if len(ex_words & new_words) >= 1:
+                        return False
+                else:
+                    # Unanswered question in same category without trigger divergence is a duplicate
+                    return False
+
+            # 3. Direct trigger match without punctuation across same or similar topics
+            ex_trig = re.sub(r'[^\w\s]', '', ex.triggeredBy or '').lower().strip()
+            if ex_trig and new_trig:
+                if ex_trig == new_trig:
+                    return False
+                if len(ex_trig) > 8 and len(new_trig) > 8:
+                    if ex_trig in new_trig or new_trig in ex_trig:
+                        return False
+
         return True
 
     def detect_clarification_conflict(self, existing: List[ClarificationQuestion], question_id: str, new_answer: str) -> Optional[str]:

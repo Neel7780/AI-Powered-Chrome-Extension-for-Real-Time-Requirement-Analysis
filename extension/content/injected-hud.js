@@ -184,12 +184,23 @@
     }
 
     if (data.isAmbiguous && data.candidateQuestion) {
-      renderClarificationQuestion(data.candidateQuestion);
+      const q = data.candidateQuestion;
+      if (activeQuestion) {
+        if (activeQuestion.selectedResponse) {
+          // Already answered in this category, don't reopen card
+          return;
+        }
+        if (activeQuestion.id === q.id || activeQuestion.category === q.category || activeQuestion.question === q.question) {
+          activeQuestion.triggeredBy = q.triggeredBy;
+          return;
+        }
+      }
+      renderClarificationQuestion(q);
     }
   }
 
   function renderClarificationQuestion(q) {
-    activeQuestion = q;
+    activeQuestion = { ...q };
     selectedOption = null;
     const slot = document.getElementById('ai-re-question-slot');
     if (!slot) return;
@@ -222,6 +233,8 @@
     submitBtn.addEventListener('click', () => {
       if (!selectedOption) return;
       
+      activeQuestion.selectedResponse = selectedOption;
+
       const payload = {
         id: activeQuestion.id,
         category: activeQuestion.category,
@@ -260,11 +273,40 @@
     }, 1000);
   });
 
-  // Listen for recording state changes from background worker
+  // Listen for recording state and session updates from background worker
   chrome.runtime?.onMessage?.addListener((message) => {
     if (message.type === 'RECORDING_STATE_CHANGED') {
       const rec = !!message.payload?.isRecording;
       setRecordingState(rec);
+    } else if (message.type === 'SESSION_STATE_SYNC' || message.type === 'CLARIFICATION_UPDATED') {
+      const clarifications = message.payload?.clarifications || message.payload?.allClarifications || [];
+      const badge = document.getElementById('ai-re-ambiguity-badge');
+      if (badge && clarifications.length > 0) {
+        badge.innerText = `${clarifications.length} Questions`;
+      }
+      // If the currently shown question was answered anywhere (sidebar / dashboard), update HUD
+      if (activeQuestion && !activeQuestion.selectedResponse) {
+        const found = clarifications.find(c => 
+          (c.id && c.id === activeQuestion.id) ||
+          (c.question && activeQuestion.question && c.question.trim().toLowerCase() === activeQuestion.question.trim().toLowerCase()) ||
+          (c.category && activeQuestion.category && c.category.trim().toLowerCase() === activeQuestion.category.trim().toLowerCase())
+        );
+        if (found) {
+          if (found.id) activeQuestion.id = found.id;
+          if (found.selectedResponse) {
+            activeQuestion.selectedResponse = found.selectedResponse;
+            const slot = document.getElementById('ai-re-question-slot');
+            if (slot) {
+              slot.innerHTML = `
+                <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; padding: 10px; border-radius: 8px; font-size: 11.5px; color: #a7f3d0; text-align: center;">
+                  ✓ Clarified: "${escapeHtml(found.selectedResponse)}"
+                </div>
+              `;
+              setTimeout(() => { if (slot) slot.innerHTML = ''; }, 3500);
+            }
+          }
+        }
+      }
     }
   });
 

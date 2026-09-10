@@ -1,3 +1,4 @@
+import re
 import asyncio
 import json
 import logging
@@ -173,15 +174,117 @@ class SessionManager:
         ]
         return any(kw in lower for kw in ui_keywords)
 
+    def _is_speech_continuation(self, last_text: str, curr_text: str) -> bool:
+        """Determines if curr_text is a continuation or expansion of the previous streaming utterance."""
+        last_clean = re.sub(r'[^\w\s]', '', last_text).lower().strip()
+        curr_clean = re.sub(r'[^\w\s]', '', curr_text).lower().strip()
+        if not last_clean or not curr_clean:
+            return False
+        if curr_clean == last_clean or curr_clean.startswith(last_clean):
+            return True
+
+        last_words = last_clean.split()
+        curr_words = curr_clean.split()
+        if not last_words or not curr_words:
+            return False
+
+        if len(last_words) == 1:
+            return curr_words[0].startswith(last_words[0][:3]) or last_words[0].startswith(curr_words[0][:3])
+
+        stem_last = last_words[:-1]
+        if curr_words[:len(stem_last)] == stem_last:
+            return True
+
+        common_prefix_len = 0
+        for w1, w2 in zip(last_words, curr_words):
+            if w1 == w2 or w1.startswith(w2[:3]) or w2.startswith(w1[:3]):
+                common_prefix_len += 1
+            else:
+                break
+        if common_prefix_len >= max(1, len(last_words) - 1) or common_prefix_len >= len(last_words) * 0.6:
+            return True
+
+        return False
+
     def add_utterance(self, text: str, speaker: str = "Speaker", timestamp: Optional[str] = None) -> Dict[str, Any]:
         """
         Adds utterance, detects ambiguities in real time, generates clarification questions,
         persists to SQLite, and recalculates the requirements board & quality scores.
+        Detects and merges streaming caption continuations seamlessly.
         """
         if not text or not text.strip() or self._is_ui_noise(text):
             return self.get_state()
 
         time_str = timestamp or datetime.now().strftime("%H:%M:%S")
+
+        # 0. Check for streaming continuation of immediately preceding utterance from same speaker
+        if self.transcript:
+            last_u = self.transcript[-1]
+            if last_u.get("speaker") == speaker and self._is_speech_continuation(last_u["text"], text):
+                last_u["text"] = text.strip()
+                last_u["timestamp"] = time_str
+
+                analysis = ambiguity_engine.analyze_utterance(text)
+                flags_data = [f.model_dump() for f in analysis.detectedFlags]
+                last_u["isAmbiguous"] = analysis.isAmbiguous
+                last_u["ambiguityScore"] = analysis.ambiguityScore
+                last_u["detectedFlags"] = flags_data
+                last_u["engine"] = analysis.engine
+
+                try:
+                    u_row_id = int(str(last_u["id"]).replace("u-", ""))
+                    db_manager.update_utterance(u_row_id, text.strip(), analysis.isAmbiguous, analysis.ambiguityScore, flags_data)
+                except Exception as e:
+                    logger.warning(f"Failed to update utterance in DB: {e}")
+
+                if analysis.isAmbiguous and flags_data:
+                    q = ambiguity_engine.generate_fallback_question(text, analysis.detectedFlags)
+                    
+                    # If this utterance previously triggered an unanswered clarification question,
+                    # update that existing pending clarification with the completed/refined question
+                    # rather than creating a duplicate or keeping an outdated fragment question.
+                    pending_c = None
+                    curr_clean = re.sub(r'[^\w\s]', '', text).lower().strip()
+                    for c in reversed(self.clarifications):
+                        if not c.get("selectedResponse"):
+                            c_trig = re.sub(r'[^\w\s]', '', c.get("triggeredBy", "")).lower().strip()
+                            if c_trig and (self._is_speech_continuation(c_trig, text) or c_trig in curr_clean):
+                                pending_c = c
+                                break
+
+                    if pending_c:
+                        pending_c["category"] = q.category
+                        pending_c["question"] = q.question
+                        pending_c["triggeredBy"] = text.strip()
+                        pending_c["suggestedOptions"] = q.suggestedOptions or q.options or []
+                        pending_c["options"] = q.suggestedOptions or q.options or []
+                        db_manager.add_clarification(
+                            self.session_id,
+                            pending_c["id"],
+                            q.category,
+                            q.question,
+                            text.strip(),
+                            pending_c["suggestedOptions"],
+                            "HIGH"
+                        )
+                    else:
+                        existing_objs = [ClarificationQuestion(**c) for c in self.clarifications]
+                        if ambiguity_engine.filter_duplicate_clarifications(existing_objs, q):
+                            q_dict = q.model_dump()
+                            self.clarifications.append(q_dict)
+                            db_manager.add_clarification(
+                                self.session_id,
+                                q.id,
+                                q.category,
+                                q.question,
+                                text.strip(),
+                                q.suggestedOptions or q.options or [],
+                                "HIGH"
+                            )
+
+                self.updated_at = datetime.now().isoformat()
+                self._recalculate()
+                return self.get_state()
 
         # 1. Analyze utterance with Ambiguity Engine
         analysis = ambiguity_engine.analyze_utterance(text)
@@ -234,16 +337,79 @@ class SessionManager:
         self._recalculate()
         return self.get_state()
 
-    def answer_clarification(self, clarification_id: str, selected_response: str) -> Dict[str, Any]:
+    def answer_clarification(
+        self, 
+        clarification_id: str, 
+        selected_response: str,
+        question: Optional[str] = None,
+        triggered_by: Optional[str] = None,
+        category: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Records a stakeholder decision for a clarification question in SQLite and recomputes requirements.
+        Uses multi-strategy matching to ensure answers from HUD, Sidepanel, and Dashboard always persist to DB.
         """
-        for c in self.clarifications:
-            if c.get("id") == clarification_id:
-                c["selectedResponse"] = selected_response.strip()
-                break
+        resp_clean = selected_response.strip()
+        matched = None
+        cid_clean = (clarification_id or "").strip()
 
-        db_manager.update_clarification_response(self.session_id, clarification_id, selected_response.strip())
+        # 1. Match by exact ID
+        if cid_clean:
+            for c in self.clarifications:
+                if c.get("id") == cid_clean:
+                    matched = c
+                    break
+
+        # 2. Match by exact or normalized question text
+        if not matched and question and question.strip():
+            q_norm = re.sub(r'[^\w\s]', '', question).lower().strip()
+            for c in self.clarifications:
+                cq_norm = re.sub(r'[^\w\s]', '', c.get("question", "")).lower().strip()
+                if cq_norm == q_norm or q_norm in cq_norm or cq_norm in q_norm:
+                    matched = c
+                    break
+
+        # 3. Match by triggered_by text
+        if not matched and triggered_by and triggered_by.strip():
+            trig_norm = re.sub(r'[^\w\s]', '', triggered_by).lower().strip()
+            for c in self.clarifications:
+                ctrig_norm = re.sub(r'[^\w\s]', '', c.get("triggeredBy", "")).lower().strip()
+                if ctrig_norm and trig_norm and (ctrig_norm in trig_norm or trig_norm in ctrig_norm):
+                    matched = c
+                    break
+
+        # 4. Match by index (e.g. "q-1", "q-2")
+        if not matched and cid_clean.startswith("q-"):
+            parts = cid_clean.split("-")
+            if len(parts) >= 2 and parts[1].isdigit():
+                idx = int(parts[1]) - 1
+                if 0 <= idx < len(self.clarifications):
+                    matched = self.clarifications[idx]
+
+        # 5. Match by category if only one unanswered in that category
+        if not matched and category and category.strip():
+            cat_candidates = [c for c in self.clarifications if c.get("category", "").lower() == category.strip().lower() and not c.get("selectedResponse")]
+            if len(cat_candidates) == 1:
+                matched = cat_candidates[0]
+
+        # 6. Fallback: first unanswered clarification
+        if not matched:
+            unanswered = [c for c in self.clarifications if not c.get("selectedResponse")]
+            if unanswered:
+                matched = unanswered[0]
+
+        canonical_id = cid_clean
+        if matched:
+            matched["selectedResponse"] = resp_clean
+            canonical_id = matched.get("id") or cid_clean
+
+        db_manager.update_clarification_response(
+            self.session_id,
+            canonical_id,
+            resp_clean,
+            question=matched.get("question") if matched else question,
+            triggered_by=matched.get("triggeredBy") if matched else triggered_by
+        )
         self.updated_at = datetime.now().isoformat()
         self._recalculate()
         return self.get_state()

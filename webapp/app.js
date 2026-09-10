@@ -644,10 +644,17 @@ function renderClarificationsHub() {
 
       // Sync to shared backend session
       try {
+        const target = activeClarifications[idx];
         const res = await fetch('/api/session/clarify/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clarificationId: cid, selectedResponse: chosen })
+          body: JSON.stringify({ 
+            clarificationId: cid, 
+            selectedResponse: chosen,
+            question: target?.question || '',
+            triggeredBy: target?.triggeredBy || '',
+            category: target?.category || ''
+          })
         });
         const json = await res.json();
         if (json.success && json.data) {
@@ -669,10 +676,17 @@ function renderClarificationsHub() {
       activeClarifications[idx].selectedResponse = val;
 
       try {
+        const target = activeClarifications[idx];
         const res = await fetch('/api/session/clarify/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clarificationId: cid, selectedResponse: val })
+          body: JSON.stringify({ 
+            clarificationId: cid, 
+            selectedResponse: val,
+            question: target?.question || '',
+            triggeredBy: target?.triggeredBy || '',
+            category: target?.category || ''
+          })
         });
         const json = await res.json();
         if (json.success && json.data) {

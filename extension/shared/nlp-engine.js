@@ -16,6 +16,12 @@ const EXT_VAGUENESS_PATTERNS = [
     explanation: 'Subjective qualitative adjectives lacking objective assessment criteria.'
   },
   {
+    pattern: /\b(mainly|good companies|solid projects|strong fresher|overall profile strength)\b/gi,
+    category: 'INCOMPLETENESS',
+    severity: 'HIGH',
+    explanation: 'Undefined scoring formula, weights, tier normalization, and project complexity heuristics.'
+  },
+  {
     pattern: /\b(relevance|relevant|profile strength|overall strength)\b/gi,
     category: 'INCOMPLETENESS',
     severity: 'HIGH',
@@ -128,16 +134,16 @@ class ClientNLPEngine {
   generateClarificationQuestion(text, flags) {
     const textLower = text.toLowerCase();
 
-    if (textLower.includes('slow') || textLower.includes('quick') || textLower.includes('fast')) {
+    if (textLower.includes('slow') || textLower.includes('quick') || textLower.includes('fast') || textLower.includes('latency')) {
       return {
-        id: `q-${Date.now()}-perf`,
+        id: 'q-cat-perf',
         category: 'Performance',
         triggeredBy: text,
-        question: 'What is the required response latency target (e.g. p95 < 1.5s) and throughput for single vs batch processing?',
+        question: 'What specific latency threshold (SLO) defines acceptable performance for resume parsing and ranking?',
         suggestedOptions: [
-          'Single resume < 1.5s (p95), batch of 100 < 30s',
-          'Single resume < 500ms, batch of 500 < 2 minutes',
-          'Sub-second real-time streaming response'
+          'Single resume parsing < 1.50s (p95) and batch of 100 resumes < 30.0s',
+          'Single resume < 500ms real-time latency with Redis caching',
+          'Asynchronous processing with webhook notification within 5.0 seconds'
         ],
         severity: 'HIGH'
       };
@@ -145,14 +151,14 @@ class ClientNLPEngine {
 
     if (textLower.includes('bias') || textLower.includes('gender') || textLower.includes('college') || textLower.includes('fair')) {
       return {
-        id: `q-${Date.now()}-fair`,
-        category: 'Fairness & Bias',
+        id: 'q-cat-fair',
+        category: 'Fairness',
         triggeredBy: text,
-        question: 'How should algorithmic bias be measured and mitigated (e.g. Disparate Impact Ratio in [0.80, 1.25], PII masking)?',
+        question: 'What quantitative fairness metric and audit frequency should be enforced to prevent demographic bias?',
         suggestedOptions: [
-          'Mask PII and college names before scoring + enforce Disparate Impact Ratio (DIR) in [0.80, 1.25]',
-          'Demographic parity post-processing calibration',
-          'Blind resume parsing with adversarial debiasing layers'
+          'Disparate Impact Ratio 0.80 - 1.25 across gender and college tiers with automated PII masking',
+          'Demographic Parity Difference < 0.05 with blind evaluation mode',
+          'Equalized Odds True Positive Rate difference < 0.04 across demographics'
         ],
         severity: 'CRITICAL'
       };
@@ -160,58 +166,58 @@ class ClientNLPEngine {
 
     if (textLower.includes('trust') || textLower.includes('good enough') || textLower.includes('accuracy')) {
       return {
-        id: `q-${Date.now()}-acc`,
-        category: 'Accuracy & Quality',
+        id: 'q-cat-acc',
+        category: 'Accuracy',
         triggeredBy: text,
         question: 'What objective accuracy metric defines "good enough for HR trust" (e.g. Precision@10 >= 85%, NDCG >= 0.82)?',
         suggestedOptions: [
-          'Top-10 Precision >= 85% and NDCG@10 >= 0.82 compared to senior recruiter consensus',
-          'F1-Score >= 90% across shortlisted candidates',
-          'Mean Reciprocal Rank (MRR) >= 0.75 on historical test sets'
+          'Ranking Precision@10 >= 85.0% and NDCG@10 >= 0.82 on verified recruiter test set',
+          'Top-5 Match Accuracy >= 90.0% with Human-in-the-Loop review',
+          'F1-Score >= 0.80 across all technical skill categories'
         ],
         severity: 'HIGH'
       };
     }
 
-    if (textLower.includes('solid') || textLower.includes('impactful') || textLower.includes('relevance') || textLower.includes('fresher')) {
+    if (textLower.includes('mainly') || textLower.includes('solid') || textLower.includes('impactful') || textLower.includes('relevance') || textLower.includes('fresher') || textLower.includes('companies') || textLower.includes('formula') || textLower.includes('weight')) {
       return {
-        id: `q-${Date.now()}-rel`,
-        category: 'Scoring & Weighting',
+        id: 'q-cat-ranking',
+        category: 'Ranking Algorithm',
         triggeredBy: text,
-        question: 'What exact formula or weightings should balance skills, project complexity, and years of experience?',
+        question: 'How should skills, experience, project complexity, and fresher profiles be weighted?',
         suggestedOptions: [
-          '45% Tech stack match, 35% Project impact, 20% Relevant experience',
-          '50% Skills match, 50% Verified project complexity with fresher bonus',
-          'Semantic embedding cosine similarity with 3-tier company filter'
+          'Multi-factor formula: 45% skills match + 35% project complexity + 20% experience with tier normalization',
+          'Equal weighting: 33.3% Skills + 33.3% Experience + 33.3% Projects',
+          'Skills-first model: 60% Verified Skills + 40% Project Portfolio'
         ],
         severity: 'HIGH'
       };
     }
 
-    if (textLower.includes('explain') || textLower.includes('why') || textLower.includes('useful')) {
+    if (textLower.includes('explain') || textLower.includes('why') || textLower.includes('useful') || textLower.includes('justification') || textLower.includes('breakdown')) {
       return {
-        id: `q-${Date.now()}-exp`,
+        id: 'q-cat-exp',
         category: 'Explainability',
         triggeredBy: text,
-        question: 'What explainability format should be rendered for HR users (e.g., feature attribution breakdown)?',
+        question: 'How should candidate match reasoning and scoring factors be presented to recruiters?',
         suggestedOptions: [
-          'Structured scorecard: matched skills %, project rating, and 3 key justification bullets',
-          'Interactive SHAP feature importance chart with highlighted JD keywords',
-          'Side-by-side JD vs candidate qualification comparison table'
+          'Interactive candidate scorecard showing matched skills %, project impact score, and top 3 justification reasons',
+          'SHAP/LIME feature importance waterfall chart rendered in < 500ms',
+          'Bullet-point summary highlighting matched job description criteria'
         ],
         severity: 'MEDIUM'
       };
     }
 
     return {
-      id: `q-${Date.now()}-gen`,
-      category: flags[0]?.category || 'General',
+      id: 'q-cat-gen',
+      category: flags[0]?.category || 'General Clarification',
       triggeredBy: text,
-      question: `Could you clarify the specific measurable criteria or threshold for "${text}"?`,
+      question: 'Could you specify concrete measurable acceptance criteria and constraints for this requirement?',
       suggestedOptions: [
-        'Specify concrete numerical threshold or SLO',
-        'Define structured standard or data schema',
-        'Establish automated pass/fail acceptance rule'
+        'Establish quantitative SLO threshold',
+        'Define pass/fail acceptance criterion',
+        'Schedule stakeholder review checkpoint'
       ],
       severity: 'MEDIUM'
     };
