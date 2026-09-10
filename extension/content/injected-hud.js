@@ -250,7 +250,22 @@
 
   // Initialize on meeting page load
   window.addEventListener('load', () => {
-    setTimeout(createHUD, 1000);
+    setTimeout(() => {
+      createHUD();
+      chrome.runtime?.sendMessage?.({ type: 'GET_RECORDING_STATUS' }, (res) => {
+        if (res && typeof res.isRecording === 'boolean') {
+          setRecordingState(res.isRecording);
+        }
+      });
+    }, 1000);
+  });
+
+  // Listen for recording state changes from background worker
+  chrome.runtime?.onMessage?.addListener((message) => {
+    if (message.type === 'RECORDING_STATE_CHANGED') {
+      const rec = !!message.payload?.isRecording;
+      setRecordingState(rec);
+    }
   });
 
   window.InjectedHUD = {

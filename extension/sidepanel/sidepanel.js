@@ -267,10 +267,12 @@ async function loadMeetingsDropdown(selectedId = null) {
       const opt = document.createElement('option');
       opt.value = m.id;
       const status = m.is_active ? '● ' : '';
-      opt.textContent = `${status}${m.title} (${m.transcript_count} lines)`;
+      const clarText = m.clarification_count > 0 ? `, ${m.resolved_count}/${m.clarification_count} clarified` : '';
+      opt.textContent = `${status}${m.title} (${m.transcript_count} lines${clarText})`;
       if (m.id === activeId) opt.selected = true;
       select.appendChild(opt);
     });
+
   } catch (e) {
     console.warn('Failed to load meetings list:', e);
   }

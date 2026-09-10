@@ -119,17 +119,15 @@ class DatabaseManager:
             query = """
                 SELECT 
                     m.id, m.title, m.domain, m.is_active, m.is_finalized, m.created_at, m.updated_at,
-                    COUNT(DISTINCT u.id) AS transcript_count,
-                    COUNT(DISTINCT c.id) AS clarification_count,
-                    SUM(CASE WHEN c.selected_response IS NOT NULL AND TRIM(c.selected_response) != '' THEN 1 ELSE 0 END) AS resolved_count
+                    (SELECT COUNT(*) FROM utterances u WHERE u.meeting_id = m.id) AS transcript_count,
+                    (SELECT COUNT(*) FROM clarifications c WHERE c.meeting_id = m.id) AS clarification_count,
+                    (SELECT COUNT(*) FROM clarifications c WHERE c.meeting_id = m.id AND c.selected_response IS NOT NULL AND TRIM(c.selected_response) != '') AS resolved_count
                 FROM meetings m
-                LEFT JOIN utterances u ON m.id = u.meeting_id
-                LEFT JOIN clarifications c ON m.id = c.meeting_id
-                GROUP BY m.id
                 ORDER BY m.updated_at DESC
             """
             rows = conn.execute(query).fetchall()
             return [dict(r) for r in rows]
+
 
     def get_meeting_full(self, meeting_id: str) -> Optional[Dict[str, Any]]:
         """Loads meeting metadata, utterances, clarifications, and requirements cache."""
