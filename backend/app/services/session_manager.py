@@ -175,12 +175,24 @@ class SessionManager:
         return any(kw in lower for kw in ui_keywords)
 
     def _is_speech_continuation(self, last_text: str, curr_text: str) -> bool:
-        """Determines if curr_text is a continuation or expansion of the previous streaming utterance."""
+        """
+        Determines if curr_text is a true progressive caption continuation or expansion of last_text.
+        Prevents distinct statements from being erroneously overwritten.
+        """
+        if not last_text or not curr_text:
+            return False
+
         last_clean = re.sub(r'[^\w\s]', '', last_text).lower().strip()
         curr_clean = re.sub(r'[^\w\s]', '', curr_text).lower().strip()
         if not last_clean or not curr_clean:
             return False
-        if curr_clean == last_clean or curr_clean.startswith(last_clean):
+
+        # 1. Exact match
+        if curr_clean == last_clean:
+            return True
+
+        # 2. Direct string prefix expansion (e.g. 'we need' -> 'we need a fast system')
+        if curr_clean.startswith(last_clean + ' ') or curr_clean.startswith(last_clean):
             return True
 
         last_words = last_clean.split()
@@ -188,21 +200,21 @@ class SessionManager:
         if not last_words or not curr_words:
             return False
 
+        # A continuation cannot have fewer words than the prior fragment
+        if len(curr_words) < len(last_words):
+            return False
+
+        # Single-word prior (e.g. 'mainly' -> 'mainly skills')
         if len(last_words) == 1:
-            return curr_words[0].startswith(last_words[0][:3]) or last_words[0].startswith(curr_words[0][:3])
+            return curr_words[0].startswith(last_words[0][:3])
 
-        stem_last = last_words[:-1]
-        if curr_words[:len(stem_last)] == stem_last:
-            return True
-
-        common_prefix_len = 0
-        for w1, w2 in zip(last_words, curr_words):
-            if w1 == w2 or w1.startswith(w2[:3]) or w2.startswith(w1[:3]):
-                common_prefix_len += 1
-            else:
-                break
-        if common_prefix_len >= max(1, len(last_words) - 1) or common_prefix_len >= len(last_words) * 0.6:
-            return True
+        # Multi-word prior: all words EXCEPT the last must match at the beginning of curr_words
+        stem_prior = last_words[:-1]
+        if curr_words[:len(stem_prior)] == stem_prior:
+            last_w = last_words[-1]
+            remaining = curr_words[len(stem_prior):len(stem_prior)+3]
+            if any(w.startswith(last_w[:3]) or last_w.startswith(w[:3]) for w in remaining):
+                return True
 
         return False
 
@@ -221,6 +233,12 @@ class SessionManager:
         if self.transcript:
             last_u = self.transcript[-1]
             if last_u.get("speaker") == speaker and self._is_speech_continuation(last_u["text"], text):
+                # If exact duplicate, return current state without re-running analysis
+                last_clean = re.sub(r'[^\w\s]', '', last_u["text"]).lower().strip()
+                curr_clean = re.sub(r'[^\w\s]', '', text).lower().strip()
+                if last_clean == curr_clean:
+                    return self.get_state()
+
                 last_u["text"] = text.strip()
                 last_u["timestamp"] = time_str
 

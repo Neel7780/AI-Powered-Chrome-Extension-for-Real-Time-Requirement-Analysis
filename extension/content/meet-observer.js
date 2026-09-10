@@ -25,7 +25,7 @@
   let isCapturingActive = false;
   let lastEmittedText = '';
   let pendingBuffer = { text: '', speaker: 'You', timer: null };
-  const emittedHashes = new Set();
+  const emittedHashes = new Map();
 
   /**
    * Identifies and rejects Google Meet control-bar UI noise, buttons, and shortcuts.
@@ -150,14 +150,16 @@
     if (isMeetingUINoise(text)) return;
 
     const trimmed = text.replace(/\s+/g, ' ').trim();
-    // Deduplicate identical emissions within short time (ignoring trailing punctuation)
     const normKey = `${speaker}:${trimmed.replace(/[.?!,;:]+$/, '').toLowerCase()}`;
-    if (emittedHashes.has(normKey)) return;
-    emittedHashes.add(normKey);
-    if (emittedHashes.size > 200) {
-      const first = emittedHashes.values().next().value;
-      emittedHashes.delete(first);
+
+    // Expire deduplication cache older than 45 seconds so repeated phrases in separate turns work
+    const now = Date.now();
+    for (const [k, t] of emittedHashes.entries()) {
+      if (now - t > 45000) emittedHashes.delete(k);
     }
+
+    if (emittedHashes.has(normKey)) return;
+    emittedHashes.set(normKey, now);
 
     lastEmittedText = trimmed;
     const timestamp = new Date().toTimeString().slice(3, 8);
@@ -184,8 +186,8 @@
   }
 
   /**
-   * Stabilizes streaming live captions with 1200ms debounce.
-   * Merges partial phrases so incomplete sentences never trigger duplicate questions.
+   * Stabilizes streaming live captions with responsive 700ms debounce.
+   * Flushes preceding completed utterances immediately so NO sentences are lost or swallowed.
    */
   function handleCaptionUpdate(speaker, content) {
     if (!content || isMeetingUINoise(content)) return;
@@ -194,12 +196,12 @@
     if (cleanContent.length < 3) return;
 
     const normContent = cleanContent.replace(/[.?!,;:]+$/, '').toLowerCase();
-    const normLastEmitted = lastEmittedText.replace(/[.?!,;:]+$/, '').toLowerCase();
+    const normKey = `${speaker}:${normContent}`;
 
-    // Already emitted exactly this utterance
-    if (normContent === normLastEmitted) return;
+    // 1. If this exact utterance has already been emitted, skip immediately
+    if (emittedHashes.has(normKey)) return;
 
-    // If speaker changed, flush pending buffer of previous speaker immediately
+    // 2. If speaker changed, flush pending buffer of previous speaker immediately
     if (pendingBuffer.speaker && pendingBuffer.speaker !== speaker && pendingBuffer.text) {
       if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
       const flushText = pendingBuffer.text;
@@ -208,58 +210,75 @@
       emitSpeech(flushSpeaker, flushText);
     }
 
-    // Check if new content is an extension/prefix of the pending buffer
-    const normPending = (pendingBuffer.text || '').replace(/[.?!,;:]+$/, '').toLowerCase();
-    if (pendingBuffer.timer) {
-      clearTimeout(pendingBuffer.timer);
+    // 3. If sentence ends with terminal punctuation and is sufficiently long, emit immediately
+    if (/[.?!]$/.test(cleanContent) && cleanContent.length > 8) {
+      if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
+      pendingBuffer = { text: '', speaker, timer: null };
+      emitSpeech(speaker, cleanContent);
+      return;
     }
 
-    // Always keep the longest, most complete version of the spoken sentence
-    const longestText = cleanContent.length >= (pendingBuffer.text || '').length ? cleanContent : pendingBuffer.text;
+    const currPendingNorm = (pendingBuffer.text || '').replace(/[.?!,;:]+$/, '').toLowerCase();
 
-    pendingBuffer = {
-      text: longestText,
-      speaker: speaker,
-      timer: setTimeout(() => {
-        const textToEmit = pendingBuffer.text;
-        pendingBuffer.text = '';
-        pendingBuffer.timer = null;
-        emitSpeech(speaker, textToEmit);
-      }, 1200)
-    };
+    // 4. Check if cleanContent is an expansion of the current pending utterance
+    const isExpansion = !currPendingNorm || 
+      normContent.startsWith(currPendingNorm) || 
+      currPendingNorm.startsWith(normContent);
+
+    if (isExpansion) {
+      const longest = cleanContent.length >= (pendingBuffer.text || '').length ? cleanContent : pendingBuffer.text;
+      if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
+      pendingBuffer = {
+        text: longest,
+        speaker: speaker,
+        timer: setTimeout(() => {
+          const textToEmit = pendingBuffer.text;
+          pendingBuffer = { text: '', speaker, timer: null };
+          emitSpeech(speaker, textToEmit);
+        }, 700)
+      };
+    } else {
+      // 5. cleanContent is a NEW distinct statement! Flush previous buffer first
+      if (pendingBuffer.text && pendingBuffer.text.length >= 3) {
+        if (pendingBuffer.timer) clearTimeout(pendingBuffer.timer);
+        const prevText = pendingBuffer.text;
+        const prevSpeaker = pendingBuffer.speaker;
+        emitSpeech(prevSpeaker, prevText);
+      }
+      pendingBuffer = {
+        text: cleanContent,
+        speaker: speaker,
+        timer: setTimeout(() => {
+          const textToEmit = pendingBuffer.text;
+          pendingBuffer = { text: '', speaker, timer: null };
+          emitSpeech(speaker, textToEmit);
+        }, 700)
+      };
+    }
   }
 
   /**
    * Scans Google Meet DOM for live captions.
    */
   function scanGoogleMeetDOM() {
-    // 1. Direct check on aria-live containers
-    const ariaContainers = document.querySelectorAll('div[aria-live="polite"], div[aria-live="assertive"]');
-    ariaContainers.forEach(container => {
-      // Find caption spans inside
-      const captionSpans = container.querySelectorAll('[jsname="tgaKEf"], .bh44bd, .VbkSUe, span');
-      if (captionSpans.length > 0) {
-        captionSpans.forEach(span => {
-          if (span.closest('button, [role="button"]')) return;
-          const text = span.innerText?.trim();
-          if (text && text.length >= 3 && !isMeetingUINoise(text)) {
-            const { speaker, content } = parseSpeakerAndContent(span, text);
-            handleCaptionUpdate(speaker, content);
-          }
-        });
-      } else {
-        const text = container.innerText?.trim();
-        if (text && text.length >= 3 && !isMeetingUINoise(text)) {
-          const { speaker, content } = parseSpeakerAndContent(container, text);
-          handleCaptionUpdate(speaker, content);
-        }
-      }
-    });
+    const visitedNodes = new Set();
+    const captionSelectors = [
+      '[jsname="tgaKEf"]',
+      '.bh44bd',
+      '.VbkSUe',
+      '.cnK48d',
+      '[data-tid="closed-caption-text"]',
+      '[data-tid="caption-text-body"]',
+      'div[aria-live="polite"] > div',
+      'div[aria-live="assertive"] > div'
+    ];
 
-    // 2. Specific Google Meet leaf elements
-    const leafNodes = document.querySelectorAll('[jsname="tgaKEf"], .bh44bd, .VbkSUe, .cnK48d');
-    leafNodes.forEach(node => {
-      if (node.closest('button, [role="button"]')) return;
+    const nodes = document.querySelectorAll(captionSelectors.join(', '));
+    nodes.forEach(node => {
+      if (node.closest('button, [role="button"], [aria-hidden="true"]')) return;
+      if (visitedNodes.has(node)) return;
+      visitedNodes.add(node);
+
       const text = node.innerText?.trim();
       if (text && text.length >= 3 && !isMeetingUINoise(text)) {
         const { speaker, content } = parseSpeakerAndContent(node, text);

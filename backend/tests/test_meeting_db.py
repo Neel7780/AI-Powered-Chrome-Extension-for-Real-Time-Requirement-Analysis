@@ -199,3 +199,49 @@ def test_clarification_answer_from_hud_persists_to_db_and_syncs():
     assert res_state.json()["data"]["stats"]["resolvedCount"] == 1
 
 
+def test_distinct_statements_with_shared_prefixes_never_overwritten():
+    """
+    Verifies that distinct statements that share similar prefixes (e.g. 'The platform should be fast'
+    and 'The platform should avoid bias') are stored as separate utterances and never collapsed or overwritten.
+    """
+    res_new = client.post("/api/meetings/new", json={"title": "Distinct Statements Test", "domain": "HR Tech"})
+    assert res_new.status_code == 200
+    mid = res_new.json()["data"]["sessionId"]
+
+    # Utterance 1
+    res1 = client.post("/api/session/utterance", json={
+        "speaker": "Speaker",
+        "text": "The platform should be fast."
+    })
+    assert res1.status_code == 200
+    assert len(res1.json()["data"]["transcript"]) == 1
+
+    # Utterance 2: Shares 'The platform should' prefix, but is a distinct requirement
+    res2 = client.post("/api/session/utterance", json={
+        "speaker": "Speaker",
+        "text": "The platform should avoid bias."
+    })
+    assert res2.status_code == 200
+    state2 = res2.json()["data"]
+    assert len(state2["transcript"]) == 2
+    assert state2["transcript"][0]["text"] == "The platform should be fast."
+    assert state2["transcript"][1]["text"] == "The platform should avoid bias."
+
+    # Utterance 3: Another requirement sharing predicate words
+    res3 = client.post("/api/session/utterance", json={
+        "speaker": "Speaker",
+        "text": "The platform should provide scorecard explainability."
+    })
+    assert res3.status_code == 200
+    state3 = res3.json()["data"]
+    assert len(state3["transcript"]) == 3
+    assert state3["transcript"][0]["text"] == "The platform should be fast."
+    assert state3["transcript"][1]["text"] == "The platform should avoid bias."
+    assert state3["transcript"][2]["text"] == "The platform should provide scorecard explainability."
+
+    # Verify directly in SQLite DB
+    full_db = db_manager.get_meeting_full(mid)
+    assert len(full_db["transcript"]) == 3
+
+
+
