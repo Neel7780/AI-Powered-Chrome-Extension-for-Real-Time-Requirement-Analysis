@@ -177,18 +177,18 @@ class AmbiguityEngine:
 
         return flags, score
 
-    def analyze_utterance(self, text: str) -> AmbiguityAnalysisResult:
+    def analyze_utterance(self, text: str, use_llm: bool = False) -> AmbiguityAnalysisResult:
         """
         Hybrid ambiguity analyzer:
         Combines LangChain contextual LLM analysis with deterministic rule fallback.
+        Defaults to instant rule engine (<1ms) to protect Gemini free-tier quota (15 RPM)
+        during real-time live meeting speech streaming.
         """
         # Run deterministic rules
         rule_flags, rule_score = self.detect_ambiguities_rule_based(text)
         
-        # Only use the LLM to enrich statements already flagged by grounded
-        # rules. A free-form chain response must not turn every utterance into
-        # an ambiguity merely because it contains the word "ambiguous".
-        if rule_flags and llm_service.is_available():
+        # Only invoke LLM when explicitly enabled and service is available
+        if use_llm and rule_flags and llm_service.is_available():
             try:
                 res, model_used = llm_service.invoke_with_fallback(
                     build_clarify_chain,

@@ -19,12 +19,13 @@ class Settings:
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
     
     # Model Configurations
-    PRIMARY_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+    PRIMARY_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     FALLBACK_MODELS: list[str] = [
-        os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"),
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash-lite",
-        "gemini-1.5-flash"
+        os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest",
+        "gemini-3.1-flash-lite"
     ]
     # Deduplicate while preserving order
     MODELS: list[str] = list(dict.fromkeys(FALLBACK_MODELS))

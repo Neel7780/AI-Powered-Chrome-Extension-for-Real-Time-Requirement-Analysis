@@ -735,8 +735,19 @@ async function autoClarifyAll() {
 }
 
 // Requirements Synthesis & Board Rendering
+let appRefineDebounceTimer = null;
+let lastAppRefineTime = 0;
+
 async function synthesizeAndEvaluateRequirements() {
   if (activeTranscript.length === 0) return;
+
+  const now = Date.now();
+  if (now - lastAppRefineTime < 2000) {
+    if (appRefineDebounceTimer) clearTimeout(appRefineDebounceTimer);
+    appRefineDebounceTimer = setTimeout(() => synthesizeAndEvaluateRequirements(), 2000);
+    return;
+  }
+  lastAppRefineTime = now;
 
   try {
     const domain = currentScenario?.domain || 'HR Tech';

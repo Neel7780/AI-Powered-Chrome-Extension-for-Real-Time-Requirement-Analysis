@@ -42,14 +42,15 @@ def refine_requirements(payload: RefinementPayload):
     refined_eval = quality_evaluator.evaluate_requirement_set(refined_set)
     comparison = quality_evaluator.compare_quality(baseline_eval, refined_eval)
 
-    # 3. Optional LangChain contextual synthesis
+    # 3. Optional LangChain contextual synthesis (only when stakeholder responses exist)
     llm_refined_text = None
-    if llm_service.is_available():
+    has_responses = any(c.get("selectedResponse") and str(c.get("selectedResponse")).strip() for c in clarifications_input)
+    if llm_service.is_available() and has_responses:
         raw_text = transcript_input if isinstance(transcript_input, str) else "\n".join(
             f"{u.get('speaker', 'Speaker')}: {u.get('text', '')}" for u in transcript_input
         )
         q_str = "\n".join(f"- {c.get('question', '')}" for c in clarifications_input)
-        r_str = "\n".join(f"- {c.get('selectedResponse', '')}" for c in clarifications_input)
+        r_str = "\n".join(f"- {c.get('selectedResponse', '')}" for c in clarifications_input if c.get('selectedResponse'))
         res, _ = llm_service.invoke_with_fallback(
             build_refine_chain,
             {"transcript": raw_text, "questions": q_str, "responses": r_str}

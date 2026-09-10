@@ -142,7 +142,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadMeetingsDropdown(message.payload?.sessionId);
       } else if (message.type === 'CLARIFICATION_UPDATED') {
         activeClarifications = message.payload?.allClarifications || message.payload || [];
-        updateRequirementsAndQuality();
         renderClarifications();
       } else if (message.type === 'MEETING_DATA_RESET') {
         activeTranscript = [];
@@ -171,6 +170,10 @@ function initSessionSync() {
     sessionSocket = new WebSocket(WS_URL);
     sessionSocket.onopen = () => {
       console.log('🔗 [Sidepanel] WebSocket session connected.');
+      if (syncPollTimer) {
+        clearInterval(syncPollTimer);
+        syncPollTimer = null;
+      }
       backendReachable = true;
       loadMeetingsDropdown();
     };
@@ -202,7 +205,7 @@ function initSessionSync() {
 function startPollingFallback() {
   if (syncPollTimer) return;
   fetchSessionState();
-  syncPollTimer = setInterval(fetchSessionState, 1500);
+  syncPollTimer = setInterval(fetchSessionState, 5000);
 }
 
 async function fetchSessionState() {
@@ -605,48 +608,66 @@ function renderClarifications() {
     return;
   }
 
-  list.innerHTML = activeClarifications.map((c, idx) => {
-    const isAnswered = !!(c.selectedResponse && c.selectedResponse.trim().length > 0);
-    const cid = c.id || `q-${idx+1}`;
-    return `
-      <div class="clarification-card ${isAnswered ? 'answered' : ''}">
-        <div class="q-header">
-          <span class="q-cat">${escapeHtml(c.category || 'Clarification')}</span>
-          <span style="font-size: 11px; color: ${isAnswered ? '#10b981' : '#f59e0b'}; font-weight: 700;">
-            ${isAnswered ? '✓ Clarified' : '● Needs Answer'}
-          </span>
-        </div>
-        <div class="q-title">${escapeHtml(c.question)}</div>
-        ${c.triggeredBy ? `<div class="q-trigger">Triggered by: "${escapeHtml(c.triggeredBy)}"</div>` : ''}
+  list.innerHTML = '';
 
-        <div class="options-stack">
-          ${(c.suggestedOptions || c.options || []).map((opt) => {
-            const selected = c.selectedResponse === opt ? 'selected' : '';
-            return `
-              <button class="option-choice-btn ${selected}" data-cid="${cid}" data-opt="${escapeHtml(opt)}">
-                ${escapeHtml(opt)}
-              </button>
-            `;
-          }).join('')}
-        </div>
+  activeClarifications.forEach((c, idx) => {
+    const card = document.createElement('div');
+    const isAnswered = !!c.selectedResponse;
+    const cid = c.id || `q-${idx + 1}`;
+    card.className = `clarification-card ${isAnswered ? 'answered' : 'pending'}`;
 
-        <input type="text" class="custom-answer-input" placeholder="Or enter custom stakeholder clarification..." value="${escapeHtml(c.selectedResponse || '')}" data-cid="${cid}" />
+    const opts = c.suggestedOptions || c.options || [];
+    const optionsHtml = opts.map(opt => `
+      <button class="option-choice-btn ${c.selectedResponse === opt ? 'selected' : ''}" 
+              data-cid="${cid}" 
+              data-opt="${encodeURIComponent(opt)}">
+        ${c.selectedResponse === opt ? '✓ ' : ''}${opt}
+      </button>
+    `).join('');
+
+    card.innerHTML = `
+      <div class="clarification-card-header">
+        <span class="c-category-badge ${c.category?.toLowerCase() || 'general'}">${c.category || 'Clarification'}</span>
+        <span class="c-status-badge ${isAnswered ? 'status-resolved' : 'status-pending'}">
+          ${isAnswered ? 'Resolved' : 'Action Required'}
+        </span>
       </div>
+      <div class="c-question-body">${c.question || 'Measurable SLO or acceptance threshold required.'}</div>
+      ${c.triggeredBy ? `<div class="c-trigger-context">Triggered by: "<em>${c.triggeredBy}</em>"</div>` : ''}
+      
+      <div class="c-options-group">
+        ${optionsHtml}
+      </div>
+
+      <div class="c-custom-answer-row">
+        <input type="text" class="custom-answer-input" 
+               placeholder="Or enter custom measurable threshold..." 
+               value="${c.selectedResponse && !opts.includes(c.selectedResponse) ? c.selectedResponse : ''}" 
+               data-cid="${cid}">
+      </div>
+
+      ${c.selectedResponse ? `
+        <div class="c-selected-summary">
+          <span class="c-check-icon">✓</span>
+          <span>Decision: <strong>${c.selectedResponse}</strong></span>
+        </div>
+      ` : ''}
     `;
-  }).join('');
+
+    list.appendChild(card);
+  });
 
   // Event handlers for option selection & custom inputs with shared session sync
   list.querySelectorAll('.option-choice-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const cid = btn.getAttribute('data-cid');
-      const chosen = btn.getAttribute('data-opt');
+      const chosen = decodeURIComponent(btn.getAttribute('data-opt'));
       
       // Update locally
       const target = activeClarifications.find(c => (c.id || '') === cid || activeClarifications.indexOf(c) === parseInt(cid.replace('q-',''))-1);
       if (target) target.selectedResponse = chosen;
       
       renderClarifications();
-      updateRequirementsAndQuality();
 
       const answerPayload = {
         clarificationId: cid,
@@ -664,7 +685,7 @@ function renderClarifications() {
         }).catch(() => {});
       }
 
-      // Sync to shared backend session
+      // Sync to shared backend session (backend already recomputes requirements and returns updated state)
       try {
         const res = await fetch(`${SERVER_URL}/api/session/clarify/answer`, {
           method: 'POST',
@@ -674,8 +695,12 @@ function renderClarifications() {
         const json = await res.json();
         if (json.success && json.data) {
           applySynchronizedState(json.data);
+          return;
         }
-      } catch {}
+      } catch {
+        // Fallback only if server unreachable
+        debouncedUpdateRequirementsAndQuality(1000);
+      }
     });
   });
 
@@ -687,8 +712,6 @@ function renderClarifications() {
       const target = activeClarifications.find(c => (c.id || '') === cid || activeClarifications.indexOf(c) === parseInt(cid.replace('q-',''))-1);
       if (target) target.selectedResponse = customVal;
       
-      updateRequirementsAndQuality();
-
       const answerPayload = {
         clarificationId: cid,
         selectedResponse: customVal,
@@ -714,14 +737,32 @@ function renderClarifications() {
         const json = await res.json();
         if (json.success && json.data) {
           applySynchronizedState(json.data);
+          return;
         }
-      } catch {}
+      } catch {
+        debouncedUpdateRequirementsAndQuality(1000);
+      }
     });
   });
 }
 
+let refineDebounceTimer = null;
+function debouncedUpdateRequirementsAndQuality(delay = 2000) {
+  if (refineDebounceTimer) clearTimeout(refineDebounceTimer);
+  refineDebounceTimer = setTimeout(() => {
+    updateRequirementsAndQuality();
+  }, delay);
+}
+
+let lastRefineCallTime = 0;
 async function updateRequirementsAndQuality() {
   if (activeTranscript.length === 0) return;
+
+  const now = Date.now();
+  if (now - lastRefineCallTime < 2000) {
+    return;
+  }
+  lastRefineCallTime = now;
 
   try {
     const res = await fetch(`${SERVER_URL}/api/refine`, {
